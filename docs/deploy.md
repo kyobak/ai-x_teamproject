@@ -8,7 +8,7 @@
 | 관리자 PIN · 기기 키 | Render 대시보드 → erica-wait-api → Environment | `ADMIN_PIN`, `EDGE_API_KEY` 자동 생성값 |
 
 - 백엔드는 `main` 푸시마다 자동 재배포됩니다.
-- 웹앱은 CLI 로 올렸으므로 코드 수정 후 `cd apps/web && npx vercel deploy --prod --yes` 를 실행해야 반영됩니다. (Vercel 대시보드 → Settings → Git 에서 저장소를 연결하면 이후 자동 배포, Root Directory 는 `apps/web`)
+- 웹앱도 GitHub 과 연결되어(Root Directory `apps/web`) `main` 푸시마다 자동 배포됩니다. 다른 브랜치·PR 은 미리보기 주소가 생깁니다. 수동으로 올리려면 `cd apps/web && npx vercel deploy --prod --yes`.
 - 노트북 영상을 배포 서버로 보내기: `.venv/bin/python vision/run_video.py --api https://erica-wait-api.onrender.com --device-key <EDGE_API_KEY> --loop --show`
 
 구성: **웹앱 → Vercel**, **백엔드 → Render 무료 플랜(시연용) 또는 Fly.io(볼륨 있음, 카드 필요)**, 영상·센서는 카메라/센서가 있는 기기(노트북·Pi)에서 실행해 배포된 백엔드로 숫자만 보냅니다.
