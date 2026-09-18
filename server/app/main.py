@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import get_conn, init_db, utcnow
 from app.logic import laundry as L
-from app.routers import admin, laundry, reports, resources, stream, vision
+from app.routers import admin, checkin, laundry, push, reports, resources, stream, vision
 from app.services import load_machine_state, process_queue, publish_resource, save_machine_state
 
 
@@ -34,6 +34,17 @@ async def periodic_housekeeping() -> None:
                         save_machine_state(conn, r["id"], st)
                     process_queue(conn, r["id"], now)
                     if ev:
+                        publish_resource(conn, r["id"])
+                # 오픈스페이스: 퇴실을 안 찍은 체크인은 일정 시간 뒤 자동 퇴실
+                from datetime import timedelta
+                from app import config as cfg
+                from app.db import iso
+                expired = conn.execute(
+                    "UPDATE checkins SET checked_out_at=? WHERE checked_out_at IS NULL AND checked_in_at < ?",
+                    (iso(now), iso(now - timedelta(minutes=cfg.CHECKIN_AUTO_EXPIRE_MINUTES))),
+                ).rowcount
+                if expired:
+                    for r in conn.execute("SELECT id FROM resources WHERE kind='space'").fetchall():
                         publish_resource(conn, r["id"])
                 # 학식은 60초 무신호 시 대체값 표시가 되어야 하므로, 주기적으로 상태를 다시 보냅니다.
                 for r in conn.execute("SELECT id FROM resources WHERE kind IN ('cafeteria','shuttle')").fetchall():
@@ -56,7 +67,7 @@ app = FastAPI(title="ERICA 캠퍼스 대기 통합 서비스 API", version="0.1.
 # 개발 중엔 어느 출처(휴대폰, Vercel 미리보기 등)에서든 호출 가능하게 엽니다. 배포 시엔 도메인을 제한합니다.
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-for r in (resources.router, vision.router, laundry.router, reports.router, admin.router, stream.router):
+for r in (resources.router, vision.router, laundry.router, reports.router, admin.router, stream.router, push.router, checkin.router):
     app.include_router(r)
 
 

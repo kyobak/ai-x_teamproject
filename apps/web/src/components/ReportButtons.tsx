@@ -1,15 +1,17 @@
 "use client";
 import { useState } from "react";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
-/** 혼잡도 제보. 10분에 한 번만 받으며(REQ-RPT-01), 거부되면 재제보 가능 시각을 보여줍니다. */
+/** 혼잡도 제보. 10분에 한 번만 받으며(REQ-RPT-01), 거부되면 재제보 가능 시각을 보여줍니다. 버튼은 회색 알약 + 의미색 글자. */
 const OPTIONS = [
-  { level: 1, label: "여유", cls: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
-  { level: 3, label: "보통", cls: "bg-amber-50 text-amber-700 ring-amber-200" },
-  { level: 5, label: "혼잡", cls: "bg-rose-50 text-rose-700 ring-rose-200" },
+  { level: 1, key: "level.relaxed", fg: "text-up" },
+  { level: 3, key: "level.normal", fg: "text-warn" },
+  { level: 5, key: "level.crowded", fg: "text-down" },
 ];
 
 export function ReportButtons({ resourceId, deviceId }: { resourceId: string; deviceId: string }) {
+  const t = useT();
   const [msg, setMsg] = useState<string | null>(null);
   const send = async (level: number) => {
     setMsg(null);
@@ -25,13 +27,13 @@ export function ReportButtons({ resourceId, deviceId }: { resourceId: string; de
   };
   return (
     <div>
-      <p className="mb-2 text-sm font-medium text-slate-700">지금 현장은 어떤가요? (제보)</p>
+      <p className="mb-2 text-sm font-semibold text-ink">{t("report.q")}</p>
       <div className="flex gap-2">
         {OPTIONS.map((o) => (
-          <button key={o.level} onClick={() => send(o.level)} className={`flex-1 rounded-xl py-2 text-sm font-semibold ring-1 ${o.cls}`}>{o.label}</button>
+          <button key={o.level} onClick={() => send(o.level)} className={`pill h-11 flex-1 bg-surface-strong text-sm font-semibold ${o.fg} active:bg-hairline`}>{t(o.key)}</button>
         ))}
       </div>
-      {msg && <p className="mt-2 text-xs text-slate-600">{msg}</p>}
+      {msg && <p className="mt-2 text-xs text-body">{msg}</p>}
     </div>
   );
 }

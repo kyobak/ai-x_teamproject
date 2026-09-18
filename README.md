@@ -10,7 +10,13 @@
 | A. 학식 | 영상 파일 → YOLO 사람 검출 → 줄 구역 인원 + 통과선 처리율 → 예상 대기시간 → 대시보드 | ✅ 동작 |
 | B. 세탁실 | 진동 센서 값 → 사용 중/사용 가능 판정(30초 시작, 무진동 5분 종료) → 가상 대기열 → 내 차례 알림 | ✅ 동작 (센서는 시뮬레이터) |
 | Should. 셔틀 | 같은 비전 수치 + 시간표 + 정원 → "몇 대 뒤 탑승" | ✅ 화면·계산 구현 (데이터는 학식 모듈 재사용) |
-| Could. 오픈스페이스·주차 | 관리자 수동 입력 목업 | ✅ 목업 |
+| Could. 오픈스페이스 | 입구 QR 체크인/체크아웃 → 재실 인원 (`/checkin/space-1`, 관리 화면에서 QR 출력) | ✅ 동작 |
+| Could. 주차장 | 관리자 수동 입력 목업 | ✅ 목업 |
+| Could. 관리자 자원 등록 | PIN 로그인 후 자원 추가·삭제 (`/admin`) | ✅ 동작 |
+| Could. 영어 UI | 헤더의 EN/한 토글 (고정 문구만 번역) | ✅ 동작 |
+| Should. Web Push | 앱을 닫아도 "내 차례" 알림 (VAPID, `server/app/push.py`) | ✅ 동작 (HTTPS 또는 localhost 에서만 구독 가능) |
+| 메뉴 | 복지포털 공개 데이터에서 식당 4곳 조·중·석식 (`jobs/crawl_menu.py`) | ✅ 동작 |
+| 센서 대안 | 휴대폰 가속도계를 센서로 (`/sensor`) | ✅ 동작 |
 
 CCTV 연동은 하지 않습니다. **영상 파일(또는 웹캠)을 노트북에서 재생하며 숫자만 서버로 보내는** 방식으로 시연합니다.
 
@@ -40,7 +46,7 @@ npm run dev --prefix apps/web
 
 # 3) 데모 데이터 공급 (터미널 3, 4)
 .venv/bin/python vision/download_sample.py                       # 샘플 영상 1개 다운로드 (최초 1회)
-.venv/bin/python vision/run_video.py --loop --show               # 영상 → 숫자 전송 (창에 박스 표시, 저장 안 함). 창에서 q 를 누르면 종료
+.venv/bin/python vision/run_video.py --loop --show               # 영상 → 숫자 전송 (창에 박스 표시, 저장 안 함). 창에서 ESC 를 누르면 종료
 .venv/bin/python sensors/simulate_washer.py --resource laundry-w1 --speed 20   # 세탁기 1 진동 시뮬레이션
 ```
 
@@ -63,6 +69,24 @@ cd apps/web && npm run lint && npm run build
 ```
 
 ---
+
+### 관리자 화면
+`/admin` 은 PIN(기본 `0000`, `server/.env` 의 `ADMIN_PIN`)을 넣어야 열립니다. 세탁기 상태 수동 입력, 혼잡도 입력, 자원 등록·삭제, 오픈스페이스 QR 출력, 푸시 테스트가 있습니다.
+
+### 식단·매장 정보 갱신
+```bash
+.venv/bin/python jobs/crawl_menu.py      # 복지포털(life.hanyang.ac.kr) 공개 데이터 → jobs/data/campus_food.json + DB
+```
+식단 페이지 본문은 로그인이 필요해서, 페이지가 불러오는 공개 데이터 파일(`/theme/assets/js/mock-data.js`)을 읽습니다. 식당은 학생식당·창의관식당·교직원식당·창업보육센터식당 4곳. **푸드코트 입점 매장 목록은 로그인 뒤 시설안내에서만 보여** `jobs/data/campus_food.json` 의 `foodcourt_vendors_todo` 에 채워 넣으면 화면에 나옵니다(`server/app/db.py` 의 `foodcourt-1` extra.vendors).
+
+### 우리 영상으로 시연하기
+촬영한 영상을 **`vision/samples/demo.mp4`** 에 두면 `run_video.py` 가 자동으로 그 파일을 씁니다. 촬영 요령과 구역 그리기는 [docs/demo-video-guide.md](docs/demo-video-guide.md).
+
+### 센서 구매·연동
+[docs/sensor-guide.md](docs/sensor-guide.md): ESP32 + MPU-6050 (기기당 약 1.5만 원), 배선, 펌웨어, 실측으로 정할 값. 사기 전엔 `/sensor` 화면으로 휴대폰을 센서로 쓸 수 있습니다.
+
+### 디자인
+[docs/design/DESIGN-coinbase.md](docs/design/DESIGN-coinbase.md) 가이드를 따릅니다: 흰 캔버스, 파랑(#0052ff) 하나만 주요 버튼에, 24px 카드, 알약 버튼, 의미색은 글자에만. 제목·큰 숫자·버튼은 **잘난체 2(Jalnan2)**, 본문은 시스템 한글 서체. 폰트 파일은 `apps/web/public/fonts/` (원본 `assets/fonts/`)에 있어 팀원 모두 같은 글꼴로 봅니다. Figma 파일은 [docs/design.md](docs/design.md).
 
 ## 2. 폴더 구조
 

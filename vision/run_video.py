@@ -72,7 +72,8 @@ class ThroughputCounter:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="영상 기반 줄 인원·처리율 계수 (숫자만 전송)")
-    ap.add_argument("--source", default="vision/samples/people-walking.mp4", help="영상 파일 경로 또는 웹캠 번호(0)")
+    ap.add_argument("--source", default=None,
+                    help="영상 파일 경로 또는 웹캠 번호(0). 생략하면 vision/samples/demo.mp4(우리 촬영본) → people-walking.mp4(공개 샘플) 순으로 찾음")
     ap.add_argument("--zone", default="vision/zones/cafeteria-1.json")
     ap.add_argument("--resource", default="cafeteria-1", help="서버의 resource id")
     ap.add_argument("--api", default="http://localhost:8000")
@@ -88,6 +89,14 @@ def main() -> None:
     ap.add_argument("--show", action="store_true", help="주석 달린 화면 표시 (저장 안 함)")
     ap.add_argument("--dry-run", action="store_true", help="서버로 보내지 않고 콘솔에만 출력")
     args = ap.parse_args()
+    if args.source is None:
+        # 팀이 촬영한 연출 영상은 vision/samples/demo.mp4 에 두는 것이 약속입니다 (README "우리 영상으로 바꾸기").
+        for cand in ("vision/samples/demo.mp4", "vision/samples/people-walking.mp4"):
+            if Path(cand).exists():
+                args.source = cand
+                break
+        else:
+            sys.exit("영상이 없습니다. vision/samples/demo.mp4 를 넣거나 vision/download_sample.py 를 실행하세요.")
 
     zone_cfg = load_zone(Path(args.zone))
     polygon = np.array(zone_cfg["queue_polygon"], dtype=np.int64)
@@ -190,7 +199,10 @@ def main() -> None:
             cv2.putText(vis, f"queue={smoothed}  thr/min={thr}  wait={est}min", (30, 60),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0, 255, 255), 3)
             cv2.imshow("queue counter (not recorded)", vis)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
+            # 종료 키는 ESC 만. 예전엔 'q' 였는데, 영상 창이 포커스를 가진 채로 한글을 타이핑하면
+            # ㅂ(=q 키) 이 들어와 프로그램이 조용히 꺼지는 사고가 실제로 있었습니다.
+            if cv2.waitKey(1) & 0xFF == 27:
+                print("[vision] ESC 입력으로 종료")
                 break
 
         # 파일 재생을 실제 시간에 맞춰 늦춥니다(안 그러면 14초 영상이 3초 만에 끝나 데모가 안 됩니다).

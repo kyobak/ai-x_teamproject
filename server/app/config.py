@@ -59,6 +59,18 @@ REPORT_TTL_MINUTES = int(os.getenv("REPORT_TTL_MINUTES", "30"))
 # ---------- 셔틀(REQ-SHT-*, Should) ----------
 SHUTTLE_BUS_CAPACITY = int(os.getenv("SHUTTLE_BUS_CAPACITY", "45"))
 
+# ---------- 관리자 ----------
+# /api/admin/* 와 관리 화면은 이 PIN 을 헤더 X-Admin-Pin 으로 보내야 합니다. 프로토타입용 단순 인증이며 배포 시 로그인으로 교체.
+ADMIN_PIN = os.getenv("ADMIN_PIN", "0000")
+
+# ---------- Web Push (VAPID) ----------
+VAPID_KEY_PATH = DATA_DIR / "vapid.pem"                       # 서버 첫 실행 시 자동 생성
+VAPID_CLAIMS_SUB = os.getenv("VAPID_CLAIMS_SUB", "mailto:team09@example.com")
+
+# ---------- 오픈스페이스 QR 체크인 ----------
+# 체크아웃을 안 찍고 나간 사람은 이 시간(분) 뒤 자동 퇴실 처리합니다.
+CHECKIN_AUTO_EXPIRE_MINUTES = int(os.getenv("CHECKIN_AUTO_EXPIRE_MINUTES", "240"))
+
 # ---------- 시연 배속 ----------
 # DEMO_TIME_SCALE=20 으로 서버를 띄우면 위의 "초/분" 상수가 전부 1/20 이 됩니다 (30초→1.5초, 5분→15초, 50분→2.5분).
 # sensors/simulate_washer.py --speed 20 --no-virtual-ts 와 함께 쓰면, 실제 시계 기준으로 상태 전이와 남은 시간이 맞게 보입니다.

@@ -4,3 +4,6 @@ uvicorn[standard]
 pydantic
 httpx      # 테스트에서 TestClient 가 사용
 pytest
+pywebpush   # Web Push (VAPID) 발송
+qrcode[pil] # 오픈스페이스 입구 QR 이미지 생성
+requests

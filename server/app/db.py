@@ -16,6 +16,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 
 from app import config
+from app.config import BASE_DIR
 
 # ---------------------------------------------------------------------------
 # 스키마. 계획서 "핵심 데이터 모델" 과 1:1. vision_metrics 에는 이미지·좌표를 넣을 칸 자체가 없습니다(저장 금지를 스키마로 강제).
@@ -86,6 +87,21 @@ CREATE TABLE IF NOT EXISTS sensor_samples (
     ts          TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ss_resource_time ON sensor_samples(resource_id, ts DESC);
+CREATE TABLE IF NOT EXISTS push_subs (
+    endpoint    TEXT PRIMARY KEY,
+    device_id   TEXT NOT NULL,
+    keys        TEXT NOT NULL,            -- {"p256dh":..., "auth":...}
+    created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_push_device ON push_subs(device_id);
+CREATE TABLE IF NOT EXISTS checkins (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    resource_id    TEXT NOT NULL,
+    device_id      TEXT NOT NULL,
+    checked_in_at  TEXT NOT NULL,
+    checked_out_at TEXT                   -- NULL = 재실 중
+);
+CREATE INDEX IF NOT EXISTS idx_checkins_open ON checkins(resource_id, checked_out_at);
 CREATE TABLE IF NOT EXISTS menus (
     resource_id TEXT NOT NULL,
     date        TEXT NOT NULL,            -- YYYY-MM-DD
@@ -98,9 +114,19 @@ CREATE TABLE IF NOT EXISTS menus (
 # 시드 데이터: 데모에 필요한 자원 목록. 실제 학교 자원명은 조사 후 바꿉니다.
 # ---------------------------------------------------------------------------
 SEED_RESOURCES = [
-    # 슬라이스 A: 학식 (Must)
-    ("cafeteria-1", "cafeteria", "학생복지관 1층", "학생식당 한식 코너", None, "vision", {}),
-    ("cafeteria-2", "cafeteria", "학생복지관 2층", "푸드코트", None, "report", {}),
+    # 슬라이스 A: 학식 (Must). 식당 이름·운영시간은 복지포털(life.hanyang.ac.kr) 공개 데이터 기준.
+    ("cafeteria-1", "cafeteria", "학생복지관", "학생식당", None, "vision",
+     {"hours": "조식 08:00~ · 중식 11:30~ · 석식 17:30~", "site_name": "학생식당"}),
+    ("cafeteria-2", "cafeteria", "창의인재원", "창의관식당", None, "report",
+     {"hours": "조식 08:00~ · 중식 11:30~ · 석식 17:30~", "site_name": "창의관식당"}),
+    ("cafeteria-3", "cafeteria", "교직원 전용", "교직원식당", None, "report", {"hours": "중식 11:30~", "site_name": "교직원식당"}),
+    ("cafeteria-4", "cafeteria", "창업보육센터", "창업보육센터식당", None, "report", {"hours": "중식 11:30~ · 석식 17:30~", "site_name": "창업보육센터식당"}),
+    # 푸드코트: 입점 매장 목록은 복지포털 시설안내(로그인 필요)에서 확인 후 vendors 에 채웁니다. 공개 정보는 분류별 개수뿐.
+    ("foodcourt-1", "cafeteria", "학생복지관", "푸드코트", None, "report",
+     {"hours": "10:00~19:00 (확인 필요)", "vendors": [
+         {"name": "일반음식점 9곳 (매장명 확인 필요)", "category": "식당"},
+         {"name": "카페/베이커리 11곳 (매장명 확인 필요)", "category": "카페"},
+         {"name": "편의점 5곳", "category": "편의점"}]}),
     # Should: 셔틀 (같은 비전 모듈 재사용 + 시간표)
     ("shuttle-1", "shuttle", "셔틀콕", "셔틀콕 → 한대앞역", 45, "vision",
      {"timetable": ["08:00", "08:20", "08:40", "09:00", "09:20", "09:40", "10:00", "10:30", "11:00", "11:30",
@@ -112,7 +138,7 @@ SEED_RESOURCES = [
     ("laundry-w3", "laundry", "창의인재원 A동 세탁실", "세탁기 3", None, "sensor", {"type": "washer"}),
     ("laundry-d1", "laundry", "창의인재원 A동 세탁실", "건조기 1", None, "sensor", {"type": "dryer"}),
     # Could: 목업
-    ("space-1", "space", "공학관 3층", "오픈스페이스", 40, "admin", {}),
+    ("space-1", "space", "공학관 3층", "오픈스페이스", 40, "qr", {}),
     ("parking-1", "parking", "정문", "정문 주차장", 120, "admin", {}),
 ]
 
@@ -155,8 +181,11 @@ def init_db() -> None:
     with get_conn() as conn:
         conn.executescript(SCHEMA)
         for rid, kind, zone, name, cap, source, extra in SEED_RESOURCES:
+            # 시드 자원은 upsert: 코드에서 이름·구역·extra 를 고치면 기존 DB 에도 반영됩니다. (관리자가 등록한 다른 id 는 건드리지 않음)
             conn.execute(
-                "INSERT OR IGNORE INTO resources(id, kind, zone, name, capacity, source, extra) VALUES (?,?,?,?,?,?,?)",
+                "INSERT INTO resources(id, kind, zone, name, capacity, source, extra) VALUES (?,?,?,?,?,?,?) "
+                "ON CONFLICT(id) DO UPDATE SET kind=excluded.kind, zone=excluded.zone, name=excluded.name, "
+                "capacity=excluded.capacity, source=excluded.source, extra=excluded.extra",
                 (rid, kind, zone, name, cap, source, json.dumps(extra, ensure_ascii=False)),
             )
         _seed_predictions(conn)
@@ -185,15 +214,25 @@ def _seed_predictions(conn: sqlite3.Connection) -> None:
 
 
 def _seed_menus(conn: sqlite3.Connection) -> None:
-    """오늘 메뉴 예시. jobs/crawl_menu.py 가 실제 페이지에서 가져와 갱신하는 것이 목표(robots.txt 확인 후)."""
+    """오늘 메뉴 시드. jobs/data/campus_food.json (복지포털 공개 데이터를 jobs/crawl_menu.py 가 저장) 이 있으면 그것을 쓰고,
+    없으면 예시 두 줄. 크롤러를 하루 한 번 돌리면 이 값이 덮어써집니다."""
     today = utcnow().astimezone().strftime("%Y-%m-%d")
-    sample = {
+    sample: dict[str, list] = {
         "cafeteria-1": [{"name": "제육볶음 정식", "price": 5500}, {"name": "된장찌개", "price": 5000}],
-        "cafeteria-2": [{"name": "치킨마요 덮밥", "price": 6000}, {"name": "돈까스", "price": 6500}, {"name": "쌀국수", "price": 6000}],
+        "cafeteria-2": [{"name": "치킨마요 덮밥", "price": 6000}],
     }
+    data_file = BASE_DIR.parent / "jobs" / "data" / "campus_food.json"
+    if data_file.exists():
+        try:
+            rest = {r["name"]: r["menus"] for r in json.loads(data_file.read_text(encoding="utf-8")).get("restaurants", [])}
+            mapping = {"cafeteria-1": "학생식당", "cafeteria-2": "창의관식당", "cafeteria-3": "교직원식당", "cafeteria-4": "창업보육센터식당"}
+            sample = {rid: [{"name": m["course"], "price": m["price"], "meal": m["mealTime"], "items": m["items"]}
+                            for m in rest.get(name, [])] for rid, name in mapping.items()}
+        except (ValueError, KeyError) as e:
+            print("[seed] campus_food.json 파싱 실패, 예시 메뉴 사용:", e)
     for rid, items in sample.items():
         conn.execute(
-            "INSERT OR IGNORE INTO menus(resource_id, date, items) VALUES (?,?,?)",
+            "INSERT OR REPLACE INTO menus(resource_id, date, items) VALUES (?,?,?)",
             (rid, today, json.dumps(items, ensure_ascii=False)),
         )
 

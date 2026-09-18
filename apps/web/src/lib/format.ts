@@ -1,11 +1,11 @@
-/** 화면 표시용 작은 도우미들. */
+/** 화면 표시용 작은 도우미들. 색은 "글자색만" 씁니다(디자인 가이드: 의미색을 배경으로 칠하지 않음). */
 import type { Level } from "./api";
 
-export const LEVEL_STYLE: Record<Level, { text: string; bg: string; fg: string; dot: string }> = {
-  relaxed: { text: "여유", bg: "bg-emerald-50", fg: "text-emerald-700", dot: "bg-emerald-500" },
-  normal: { text: "보통", bg: "bg-amber-50", fg: "text-amber-700", dot: "bg-amber-500" },
-  crowded: { text: "혼잡", bg: "bg-rose-50", fg: "text-rose-700", dot: "bg-rose-500" },
-  unknown: { text: "알 수 없음", bg: "bg-slate-100", fg: "text-slate-500", dot: "bg-slate-400" },
+export const LEVEL_STYLE: Record<Level, { key: string; fg: string; dot: string }> = {
+  relaxed: { key: "level.relaxed", fg: "text-up", dot: "bg-up" },
+  normal: { key: "level.normal", fg: "text-warn", dot: "bg-warn" },
+  crowded: { key: "level.crowded", fg: "text-down", dot: "bg-down" },
+  unknown: { key: "level.unknown", fg: "text-muted", dot: "bg-muted-soft" },
 };
 
 /** 데이터 출처 → 사용자에게 보여줄 짧은 라벨. 추정값을 실측처럼 보이게 하지 않는 것이 목적(REQ-VIS-03, REQ-LAU-06). */
@@ -15,6 +15,7 @@ export const SOURCE_LABEL: Record<string, string> = {
   report: "사용자 제보",
   prediction: "시간대 예측",
   admin: "관리자 입력",
+  qr: "QR 체크인",
   none: "데이터 없음",
 };
 

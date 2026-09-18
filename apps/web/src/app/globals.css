@@ -1,7 +1,59 @@
 @import "tailwindcss";
 
+/*
+ * 디자인 토큰. 근거: docs/design/DESIGN-coinbase.md (팀이 고른 레퍼런스 가이드)
+ * - 캔버스는 순백, 브랜드 색은 파랑(#0052ff) 하나만 "드물게" (주요 버튼, 활성 탭, 강조 링크)
+ * - 카드는 24px 라운드 + 1px 헤어라인, 그림자 없음
+ * - 버튼은 전부 알약(pill)
+ * - 여유/보통/혼잡은 글자색으로만 (배경을 색으로 칠하지 않음)
+ * Tailwind v4 는 @theme 에 적은 변수로 bg-primary, text-ink 같은 클래스를 자동 생성합니다.
+ */
+@theme {
+  --color-primary: #0052ff;
+  --color-primary-active: #003ecc;
+  --color-primary-disabled: #a8b8cc;
+  --color-ink: #0a0b0d;
+  --color-body: #5b616e;
+  --color-muted: #7c828a;
+  --color-muted-soft: #a8acb3;
+  --color-hairline: #dee1e6;
+  --color-hairline-soft: #eef0f3;
+  --color-canvas: #ffffff;
+  --color-surface-soft: #f7f7f7;
+  --color-surface-strong: #eef0f3;
+  --color-surface-dark: #0a0b0d;
+  --color-surface-dark-elevated: #16181c;
+  --color-on-dark-soft: #a8acb3;
+  --color-up: #05b169;      /* 여유 (semantic-up) */
+  --color-warn: #f4b000;    /* 보통 (accent-yellow) */
+  --color-down: #cf202f;    /* 혼잡 (semantic-down) */
+  --color-in-use: #0052ff;  /* 세탁기 사용 중 = 브랜드 파랑 */
+
+  --font-display: "Jalnan2", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-sans: "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --radius-card: 24px;
+}
+
+/*
+ * 팀이 고른 표시용 폰트 "잘난체 2" (Jalnan2). 파일은 public/fonts/ 에 있어 팀원 누구나 같은 글꼴로 봅니다.
+ * OTF 를 우선, 구형 브라우저용으로 TTF 도 둡니다. font-display: swap → 폰트 로딩 전에도 글자가 보이게.
+ * 잘난체는 굵기 하나짜리 제목용 서체라 본문에는 쓰지 않고, 제목·큰 숫자·버튼·탭에만 씁니다 (가독성).
+ */
+@font-face {
+  font-family: "Jalnan2";
+  src: url("/fonts/Jalnan2.otf") format("opentype"), url("/fonts/Jalnan2TTF.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* iOS 홈 화면 앱에서 하단 탭이 홈 인디케이터에 가리지 않도록 안전 영역만큼 여백 */
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 
 :root { color-scheme: light; }
-body { font-family: "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif; word-break: keep-all; }
+body { font-family: var(--font-sans); word-break: keep-all; color: var(--color-ink); background: var(--color-canvas); }
+.font-display { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.01em; }
+.card { background: var(--color-canvas); border: 1px solid var(--color-hairline); border-radius: var(--radius-card); }
+.pill { border-radius: 9999px; }

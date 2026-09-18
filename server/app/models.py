@@ -45,3 +45,23 @@ class AdminStatusIn(BaseModel):
     state: str | None = None               # 세탁기: available|in_use|unknown
     occupancy_level: str | None = None     # relaxed|normal|crowded
     occupancy_count: int | None = None     # 오픈스페이스/주차 잔여 등 숫자
+
+
+class PushSubscribeIn(BaseModel):
+    device_id: str
+    subscription: dict          # 브라우저 PushSubscription.toJSON() 그대로 {endpoint, keys:{p256dh, auth}}
+
+
+class CheckinIn(BaseModel):
+    device_id: str
+
+
+class ResourceIn(BaseModel):
+    """관리자 자원 등록. id 는 영문 소문자·숫자·하이픈만."""
+    id: str = Field(pattern=r"^[a-z0-9-]{3,40}$")
+    kind: str = Field(pattern=r"^(laundry|space|shuttle|cafeteria|parking)$")
+    zone: str
+    name: str
+    capacity: int | None = None
+    source: str = "admin"       # vision | sensor | qr | admin | report
+    extra: dict = {}

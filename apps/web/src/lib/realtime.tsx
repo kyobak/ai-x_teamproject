@@ -68,6 +68,10 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       const r: Resource = JSON.parse((e as MessageEvent).data);
       setResources((prev) => ({ ...prev, [r.id]: r }));
     });
+    es.addEventListener("resource_removed", (e) => {
+      const { id } = JSON.parse((e as MessageEvent).data) as { id: string };
+      setResources((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    });
     const onQueueEvent = (e: Event) => {
       const d = JSON.parse((e as MessageEvent).data) as { resource_id: string; device_id: string; timeout_min?: number };
       if (d.device_id !== deviceId) return;

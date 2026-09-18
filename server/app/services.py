@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from app import config
 from app.db import iso, parse_iso, row_to_dict, utcnow
 from app.events import bus
+from app import push
 from app.logic import laundry as L
 from app.logic import queue as Q
 from app.logic import wait_time as W
@@ -88,6 +89,11 @@ def process_queue(conn: sqlite3.Connection, resource_id: str, now: datetime | No
         # 화면은 이 이벤트를 받아 알림(Notification API)을 띄웁니다. 5초 이내 도달이 목표(REQ-LAU-04).
         bus.publish("queue_called", {"resource_id": resource_id, "device_id": nxt["device_id"],
                                      "timeout_min": config.QUEUE_CALL_TIMEOUT_MINUTES})
+        # 앱이 닫혀 있어도 도착하도록 Web Push 도 같이 보냅니다 (구독이 없으면 아무 일도 안 함).
+        name = conn.execute("SELECT name FROM resources WHERE id=?", (resource_id,)).fetchone()["name"]
+        push.send_to_device(nxt["device_id"], {"title": f"{name} 이(가) 비었습니다",
+                                               "body": f"{config.QUEUE_CALL_TIMEOUT_MINUTES}분 안에 사용을 시작하지 않으면 다음 순번으로 넘어갑니다.",
+                                               "url": "/laundry"})
 
 
 # ---------------------------------------------------------------------------
@@ -179,6 +185,8 @@ def build_resource_status(conn: sqlite3.Connection, res: sqlite3.Row | dict, now
         })
         if r["kind"] == "cafeteria":
             out["menu"] = _menu_today(conn, r["id"])
+            out["vendors"] = extra.get("vendors", [])      # 푸드코트 입점 매장 (resources.extra)
+            out["hours"] = extra.get("hours")               # 운영 시간 문자열
         else:
             tt = extra.get("timetable", [])
             out["next_departures"] = _next_departures(tt, now_local)
@@ -204,7 +212,21 @@ def build_resource_status(conn: sqlite3.Connection, res: sqlite3.Row | dict, now
             "avg_cycle_min": round(sum(st.cycle_history_min[-5:]) / len(st.cycle_history_min[-5:]), 1) if st.cycle_history_min else None,
         })
 
-    else:  # space, parking (Could: 관리자 입력/목업)
+    elif r["kind"] == "space" and r["source"] == "qr":
+        # 오픈스페이스: QR 체크인 수(퇴실 안 한 사람)로 재실 인원 계산. 관리자 입력이 최근 30분 안에 있으면 그것을 우선.
+        adm = _latest_admin(conn, r["id"], now)
+        count = conn.execute(
+            "SELECT COUNT(*) FROM checkins WHERE resource_id=? AND checked_out_at IS NULL", (r["id"],)
+        ).fetchone()[0]
+        if adm and adm["state"] and adm["state"].isdigit():
+            count, src, note = int(adm["state"]), "admin", "관리자 수동 입력 (30분간 유효)"
+        else:
+            src, note = "qr", "입구 QR 체크인 집계 · 퇴실을 안 찍으면 4시간 뒤 자동 퇴실"
+        ratio = (count / r["capacity"]) if r["capacity"] else 0
+        level = "relaxed" if ratio < 0.5 else "normal" if ratio < 0.85 else "crowded"
+        out.update({"occupancy_count": count, "level": level, "level_ko": LEVEL_KO[level], "source": src, "note": note})
+
+    else:  # parking 등 (Could: 관리자 입력/목업)
         adm = _latest_admin(conn, r["id"], now)
         row = conn.execute(
             "SELECT * FROM status_events WHERE resource_id=? AND source='admin' ORDER BY created_at DESC LIMIT 1", (r["id"],)

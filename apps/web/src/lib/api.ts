@@ -32,7 +32,9 @@ export interface Resource {
   report_count?: number;
   vision_seen_at?: string | null;
   confidence?: number | null;
-  menu?: { name: string; price: number }[];
+  menu?: { name: string; price: number; meal?: string; items?: string[] }[];
+  vendors?: { name: string; category?: string; hours?: string }[];
+  hours?: string | null;
   next_departures?: string[];
   buses_to_wait?: number | null;
   // laundry
@@ -80,6 +82,16 @@ export const api = {
   leaveQueue: (id: string, deviceId: string) => post(`/api/queue/${id}/leave`, { device_id: deviceId }).then((r) => json<unknown>(r)),
   startUsing: (id: string, deviceId: string) => post(`/api/queue/${id}/start`, { device_id: deviceId }).then((r) => json<unknown>(r)),
   report: (id: string, level: number, deviceId: string) => post(`/api/reports`, { resource_id: id, level, device_id: deviceId }).then((r) => json<unknown>(r)),
-  adminStatus: (body: { resource_id: string; state?: string; occupancy_level?: string; occupancy_count?: number }) =>
-    post(`/api/admin/status`, body).then((r) => json<unknown>(r)),
+  adminStatus: (body: { resource_id: string; state?: string; occupancy_level?: string; occupancy_count?: number }, pin: string) =>
+    fetch(`${apiBase()}/api/admin/status`, { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Pin": pin }, body: JSON.stringify(body) }).then((r) => json<unknown>(r)),
+  adminLogin: (pin: string) =>
+    fetch(`${apiBase()}/api/admin/login`, { method: "POST", headers: { "X-Admin-Pin": pin } }).then((r) => json<unknown>(r)),
+  adminCreateResource: (body: Record<string, unknown>, pin: string) =>
+    fetch(`${apiBase()}/api/admin/resources`, { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Pin": pin }, body: JSON.stringify(body) }).then((r) => json<unknown>(r)),
+  adminDeleteResource: (id: string, pin: string) =>
+    fetch(`${apiBase()}/api/admin/resources/${id}`, { method: "DELETE", headers: { "X-Admin-Pin": pin } }).then((r) => json<unknown>(r)),
+  checkinToggle: (id: string, deviceId: string) => post(`/api/checkin/${id}`, { device_id: deviceId }).then((r) => json<{ state: string; occupancy_count: number }>(r)),
+  checkinMe: (id: string, deviceId: string) => fetch(`${apiBase()}/api/checkin/${id}/me?device_id=${encodeURIComponent(deviceId)}`).then((r) => json<{ checked_in: boolean }>(r)),
+  qrUrl: (id: string) => `${apiBase()}/api/checkin/${id}/qr.png?base=${encodeURIComponent(typeof window !== "undefined" ? window.location.origin : "")}`,
+  pushTest: (deviceId: string) => post(`/api/push/test`, { device_id: deviceId }).then((r) => json<unknown>(r)),
 };

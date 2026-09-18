@@ -1,0 +1,17 @@
+# 배포/재현용 (선택). 노트북 시연은 README 1절의 4개 프로세스 방식이 더 간단합니다.
+#   docker compose up --build   → 백엔드 :8000, 웹 :3000
+# 영상 파이프라인·센서는 카메라/센서가 붙은 기기에서 따로 실행합니다.
+services:
+  api:
+    build: { context: ., dockerfile: server/Dockerfile }
+    ports: ["8000:8000"]
+    environment:
+      - EDGE_API_KEY=${EDGE_API_KEY:-dev-edge-key}
+      - ADMIN_PIN=${ADMIN_PIN:-0000}
+    volumes: ["./server/data:/app/server/data"]
+  web:
+    build: { context: ./apps/web }
+    ports: ["3000:3000"]
+    environment:
+      - NEXT_PUBLIC_API_BASE=${NEXT_PUBLIC_API_BASE:-http://localhost:8000}
+    depends_on: [api]

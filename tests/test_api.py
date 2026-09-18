@@ -5,6 +5,7 @@ from app import config
 from app.db import get_conn, iso, utcnow
 
 KEY = {"X-Device-Key": config.EDGE_API_KEY}
+PIN = {"X-Admin-Pin": config.ADMIN_PIN}
 
 
 def test_req_vis_01_metrics_endpoint_rejects_image_fields(client):
@@ -23,12 +24,12 @@ def test_vision_metrics_require_device_key(client):
 
 def test_req_lau_04_first_in_queue_is_called_when_machine_frees(client):
     # 기기를 사용 중으로 만든 뒤 두 명이 줄을 선다
-    client.post("/api/admin/status", json={"resource_id": "laundry-w1", "state": "in_use"})
+    client.post("/api/admin/status", json={"resource_id": "laundry-w1", "state": "in_use"}, headers=PIN)
     assert client.post("/api/queue/laundry-w1/join", json={"device_id": "A"}).json()["position"] == 1
     assert client.post("/api/queue/laundry-w1/join", json={"device_id": "B"}).json()["position"] == 2
     assert client.post("/api/queue/laundry-w1/join", json={"device_id": "A"}).status_code == 409   # 중복 등록 금지
     # 기기가 비면 A 가 호출된다
-    client.post("/api/admin/status", json={"resource_id": "laundry-w1", "state": "available"})
+    client.post("/api/admin/status", json={"resource_id": "laundry-w1", "state": "available"}, headers=PIN)
     q = client.get("/api/queue/laundry-w1").json()
     assert q[0] == {"position": 1, "status": "called"} and q[1]["status"] == "waiting"
 
@@ -48,7 +49,7 @@ def test_req_lau_05_called_ticket_expires_after_5min_and_next_is_called(client):
 
 
 def test_req_lau_07_unknown_machine_does_not_call(client):
-    client.post("/api/admin/status", json={"resource_id": "laundry-w3", "state": "unknown"})
+    client.post("/api/admin/status", json={"resource_id": "laundry-w3", "state": "unknown"}, headers=PIN)
     client.post("/api/queue/laundry-w3/join", json={"device_id": "A"})
     assert client.get("/api/queue/laundry-w3").json() == [{"position": 1, "status": "waiting"}]
 
@@ -75,3 +76,33 @@ def test_queue_me_route_is_not_shadowed_by_resource_route(client):
     client.post("/api/queue/laundry-w2/join", json={"device_id": "phone-9"})
     mine = client.get("/api/queue/me", params={"device_id": "phone-9"}).json()
     assert len(mine) == 1 and mine[0]["resource_id"] == "laundry-w2" and mine[0]["status"] == "called"
+
+
+def test_admin_requires_pin(client):
+    body = {"resource_id": "laundry-w1", "state": "in_use"}
+    assert client.post("/api/admin/status", json=body).status_code == 401
+    assert client.post("/api/admin/status", json=body, headers=PIN).status_code == 200
+
+
+def test_admin_can_register_resource(client):
+    body = {"id": "laundry-w9", "kind": "laundry", "zone": "B동", "name": "세탁기 9", "source": "sensor", "extra": {"type": "washer"}}
+    assert client.post("/api/admin/resources", json=body, headers=PIN).status_code == 200
+    assert any(r["id"] == "laundry-w9" for r in client.get("/api/resources").json())
+    assert client.delete("/api/admin/resources/laundry-w9", headers=PIN).status_code == 200
+
+
+def test_space_qr_checkin_toggles_and_counts(client):
+    r = client.post("/api/checkin/space-1", json={"device_id": "A"}).json()
+    assert r["state"] == "checked_in" and r["occupancy_count"] == 1
+    client.post("/api/checkin/space-1", json={"device_id": "B"})
+    d = client.get("/api/resources/space-1").json()
+    assert d["occupancy_count"] == 2 and d["source"] == "qr"
+    assert client.post("/api/checkin/space-1", json={"device_id": "A"}).json()["state"] == "checked_out"
+    assert client.get("/api/resources/space-1").json()["occupancy_count"] == 1
+
+
+def test_push_public_key_and_subscribe(client):
+    key = client.get("/api/push/public-key").json()["public_key"]
+    assert len(key) > 60
+    sub = {"endpoint": "https://push.example/abc", "keys": {"p256dh": "x", "auth": "y"}}
+    assert client.post("/api/push/subscribe", json={"device_id": "A", "subscription": sub}).status_code == 200
