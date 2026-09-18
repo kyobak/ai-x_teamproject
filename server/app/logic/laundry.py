@@ -107,7 +107,10 @@ def display_info(st: MachineState, now: datetime) -> dict:
     if st.state == IN_USE and st.expected_end_at:
         remaining = (st.expected_end_at - now).total_seconds() / 60
         if remaining > 0:
-            return {"remaining_min": round(remaining), "label": f"약 {round(remaining)}분 후 종료 예상", "overdue": False}
+            mins = round(remaining)
+            # 1분 미만이면 "약 0분" 대신 "곧" 으로. 숫자 0 은 이미 끝난 것처럼 읽히기 때문입니다.
+            label = "곧 종료 예상 (1분 이내)" if mins == 0 else f"약 {mins}분 후 종료 예상"
+            return {"remaining_min": mins, "label": label, "overdue": False}
         return {"remaining_min": 0, "label": "동작 중 (예상 시간 초과, 센서 기준)", "overdue": True}
     if st.state == UNKNOWN:
         return {"remaining_min": None, "label": "상태 불명 (센서 신호 없음)", "overdue": False}

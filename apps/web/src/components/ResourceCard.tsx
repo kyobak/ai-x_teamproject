@@ -18,7 +18,9 @@ export function ResourceCard({ r }: { r: Resource }) {
     sub = r.people_count != null ? `줄 ${r.people_count}명` : "";
     if (r.kind === "shuttle" && r.buses_to_wait != null) sub += ` · ${r.buses_to_wait === 0 ? "다음 차 탑승" : `${r.buses_to_wait}대 뒤 탑승`}`;
   } else if (r.kind === "laundry") {
-    big = r.state === "available" ? "사용 가능" : r.state === "in_use" ? (r.remaining_min != null ? `${r.remaining_min}분 남음` : "사용 중") : "상태 불명";
+    big = r.state === "available" ? "사용 가능"
+      : r.state === "in_use" ? (r.remaining_min == null ? "사용 중" : r.remaining_min === 0 ? "곧 종료" : `${r.remaining_min}분 남음`)
+      : "상태 불명";
     sub = r.queue_length ? `대기 ${r.queue_length}명` : "";
   } else {
     big = r.occupancy_count != null ? `${r.occupancy_count}${r.capacity ? ` / ${r.capacity}` : ""}` : (r.level_ko ?? "—");

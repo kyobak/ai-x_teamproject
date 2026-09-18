@@ -40,7 +40,7 @@ npm run dev --prefix apps/web
 
 # 3) 데모 데이터 공급 (터미널 3, 4)
 .venv/bin/python vision/download_sample.py                       # 샘플 영상 1개 다운로드 (최초 1회)
-.venv/bin/python vision/run_video.py --loop --show               # 영상 → 숫자 전송 (창에 박스 표시, 저장 안 함)
+.venv/bin/python vision/run_video.py --loop --show               # 영상 → 숫자 전송 (창에 박스 표시, 저장 안 함). 창에서 q 를 누르면 종료
 .venv/bin/python sensors/simulate_washer.py --resource laundry-w1 --speed 20   # 세탁기 1 진동 시뮬레이션
 ```
 
