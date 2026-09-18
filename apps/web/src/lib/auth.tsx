@@ -22,3 +22,9 @@ export function useAuth(): AuthUser | null {
   const raw = useSyncExternalStore(subscribe, read, () => null);
   return useMemo(() => { try { return raw ? (JSON.parse(raw) as AuthUser) : null; } catch { return null; } }, [raw]);
 }
+
+/** 브라우저에서 localStorage 를 읽을 준비가 됐는지. 서버 렌더·하이드레이션 첫 렌더에서는 false.
+ *  로그인 여부로 페이지를 튕길 때는 이 값이 true 일 때만 판단해야 합니다 (안 그러면 새로고침마다 /login 으로 감). */
+export function useAuthReady(): boolean {
+  return useSyncExternalStore(subscribe, () => true, () => false);
+}
