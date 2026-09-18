@@ -36,6 +36,10 @@ export default function LaundryHub() {
           );
         })}
         <p className="text-xs text-muted">앱은 안내 도구이며 실제로 먼저 온 사람이 우선입니다. 기기가 비면 1순위에게 알려드립니다.</p>
+        <Link href="/sensor" className="card flex items-center justify-between p-4 text-sm">
+          <span><span className="font-display text-ink">휴대폰을 진동 센서로 쓰기</span><span className="block text-xs text-muted">센서 모듈 없이 안 쓰는 휴대폰을 세탁기에 붙여 측정</span></span>
+          <span className="text-xl text-muted-soft">›</span>
+        </Link>
       </main>
     </>
   );

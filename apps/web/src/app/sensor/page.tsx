@@ -20,6 +20,17 @@ export default function SensorPage() {
   const [live, setLive] = useState(0);
   const acc = useRef<number[]>([]);
 
+  // 화면이 꺼지면 브라우저가 가속도 이벤트를 멈추므로, 측정 중엔 Wake Lock 으로 화면을 켜 둡니다 (지원 브라우저: Android Chrome, iOS 16.4+ Safari).
+  useEffect(() => {
+    if (!running) return;
+    let lock: { release: () => Promise<void> } | null = null;
+    const nav = navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<{ release: () => Promise<void> }> } };
+    nav.wakeLock?.request("screen").then((l) => { lock = l; }).catch(() => {});
+    const onVisible = () => { if (document.visibilityState === "visible") nav.wakeLock?.request("screen").then((l) => { lock = l; }).catch(() => {}); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { document.removeEventListener("visibilitychange", onVisible); lock?.release().catch(() => {}); };
+  }, [running]);
+
   useEffect(() => {
     if (!running) return;
     const onMotion = (e: DeviceMotionEvent) => {
@@ -55,7 +66,12 @@ export default function SensorPage() {
     <>
       <Header title="휴대폰 진동 센서" back="/admin" />
       <main className="space-y-4 p-4">
-        <p className="rounded-[24px] bg-surface-soft p-4 text-xs text-body">안 쓰는 휴대폰을 세탁기 옆면 위쪽에 테이프로 붙이고 이 화면을 켜 두세요. 10초마다 진동 세기를 서버에 보냅니다. 화면이 꺼지면 멈추므로 화면 자동 잠금을 꺼 두세요.</p>
+        <ol className="list-decimal space-y-1 rounded-[24px] bg-surface-soft p-4 pl-8 text-xs text-body">
+          <li>아래에서 기기를 고르고, 기기 키(관리자에게 받은 EDGE_API_KEY)를 넣습니다.</li>
+          <li>센서 시작을 누릅니다. iPhone 은 동작 센서 권한 허용을 묻습니다.</li>
+          <li>휴대폰을 세탁기·건조기 옆면 위쪽(문 쪽)에 테이프나 벨크로로 단단히 붙입니다. 진동 그래프가 흔들리면 정상입니다.</li>
+          <li>이 화면을 그대로 둡니다. 측정 중엔 화면이 꺼지지 않게 잡아 두지만, 안전하게 화면 자동 잠금도 꺼 두세요. 10초마다 서버에 전송됩니다.</li>
+        </ol>
         <section className="card space-y-3 p-6">
           <label className="block text-sm"><span className="text-muted">기기</span>
             <select value={resource} onChange={(e) => setResource(e.target.value)} className="mt-1 w-full rounded-xl border border-hairline bg-canvas px-3 py-2">
@@ -72,7 +88,8 @@ export default function SensorPage() {
             <p className="text-xs text-muted">지금 진동 (g)</p>
             <p className="font-display text-4xl tabular-nums">{live.toFixed(3)}</p>
             <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-hairline"><div className="h-full bg-primary" style={{ width: `${Math.min(100, live * 200)}%` }} /></div>
-            {last && <p className="mt-2 text-xs text-muted">마지막 전송 평균 {last.mag.toFixed(3)} g · {last.ok ? "서버 수신 OK" : "전송 실패"}</p>}
+            {last && <p className="mt-2 text-xs text-muted">마지막 전송 평균 {last.mag.toFixed(3)} g · {last.ok ? "서버 수신 OK" : "전송 실패 (기기 키·네트워크 확인)"}</p>}
+            <p className="mt-1 text-[11px] text-muted-soft">판정 기준: 0.15 g 초과가 30초 이어지면 사용 중, 무진동 5분이면 종료 (서버 설정값)</p>
           </div>
         </section>
       </main>
