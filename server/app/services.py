@@ -18,8 +18,10 @@ from app import config
 from app.db import iso, parse_iso, row_to_dict, utcnow
 from app.events import bus
 from app import push
+from app.logic import demo as D
 from app.logic import laundry as L
 from app.logic import queue as Q
+from app.logic import shuttle as S
 from app.logic import wait_time as W
 
 LEVEL_KO = {"relaxed": "여유", "normal": "보통", "crowded": "혼잡", "unknown": "알 수 없음"}
@@ -171,7 +173,15 @@ def build_resource_status(conn: sqlite3.Connection, res: sqlite3.Row | dict, now
             prediction_level=_prediction_level(conn, r["id"], now_local),
             admin_level=adm["occupancy_level"] if adm else None,
         )
+        # 데모 모드: 실측·관리자·제보가 전혀 없으면 예측값 대신 시연용 가상 수치를 씁니다 (source="demo").
+        if config.DEMO_MODE and status.source in ("prediction", "none"):
+            d = D.shuttle(r["id"], now_local) if r["kind"] == "shuttle" else D.cafeteria(r["id"], now_local)
+            thr = d["throughput_per_min"] or W.fallback_throughput(now_local)
+            wait = W.estimate_wait_minutes(d["people_count"], thr)
+            status = W.ResolvedStatus(d["people_count"], thr, wait, W.classify_level(wait), "demo", "시연용 시뮬레이션 값 (카메라 연결 전)")
+            vm = {"created_at": iso(now), "confidence": d["confidence"]}
         out.update({
+            "avg_dwell_sec": vm.get("avg_dwell_sec") if vm else None,
             "people_count": status.people_count,
             "throughput_per_min": status.throughput_per_min,
             "est_wait_min": status.est_wait_min,
@@ -188,18 +198,35 @@ def build_resource_status(conn: sqlite3.Connection, res: sqlite3.Row | dict, now
             out["vendors"] = extra.get("vendors", [])      # 푸드코트 입점 매장 (resources.extra)
             out["hours"] = extra.get("hours")               # 운영 시간 문자열
         else:
-            tt = extra.get("timetable", [])
-            out["next_departures"] = _next_departures(tt, now_local)
-            out["buses_to_wait"] = (
-                W.shuttle_buses_until_boarding(status.people_count, r["capacity"]) if status.people_count is not None else None
-            )
+            direction = extra.get("direction", "")
+            ups = S.upcoming(direction, now_local, n=4)
+            board = S.boarding(direction, now_local, status.people_count, r["capacity"])
+            out["direction"] = direction
+            out["upcoming"] = ups                                   # [{time, in_min}]
+            out["next_departures"] = [u["time"] for u in ups]
+            out["next_in_min"] = ups[0]["in_min"] if ups else None
+            out["buses_to_wait"] = board["buses_to_wait"]
+            out["board_time"] = board["board_time"]
+            out["board_in_min"] = board["board_in_min"]
+            out["board_note"] = board["note"]
+            out["travel_min"] = S.travel_minutes(direction)
 
     elif r["kind"] == "laundry":
         st = load_machine_state(conn, r["id"])
         st, _ = L.mark_stale_if_needed(st, now)
         info = L.display_info(st, now)
         tickets = live_tickets(conn, r["id"])
+        src = "sensor"
+        if config.DEMO_MODE and st.last_sample_at is None:
+            # 센서가 한 번도 붙지 않은 기기: 시연용 가상 사이클 (source="demo"). 대기열 호출은 실제 센서/관리자 입력에서만 일어남.
+            dm = D.laundry(r["id"], now)
+            st.state, st.in_use_since, st.expected_end_at = dm["state"], dm["in_use_since"], dm["expected_end_at"]
+            info = L.display_info(st, now)
+            src = "demo"
         out.update({
+            "building": extra.get("building"),
+            "source": src,
+            "note": "시연용 시뮬레이션 값 (센서 연결 전)" if src == "demo" else "진동 센서 실측",
             "machine_type": extra.get("type", "washer"),
             "state": st.state,
             "state_label": info["label"],
@@ -218,8 +245,15 @@ def build_resource_status(conn: sqlite3.Connection, res: sqlite3.Row | dict, now
         count = conn.execute(
             "SELECT COUNT(*) FROM checkins WHERE resource_id=? AND checked_out_at IS NULL", (r["id"],)
         ).fetchone()[0]
+        vm = _latest_vision(conn, r["id"])
         if adm and adm["state"] and adm["state"].isdigit():
             count, src, note = int(adm["state"]), "admin", "관리자 수동 입력 (30분간 유효)"
+        elif vm and W.is_vision_usable(parse_iso(vm["created_at"]), vm["confidence"], now):
+            # 실내 카메라가 재실 인원을 세는 경우 (zone_type=room). 영상은 저장하지 않고 숫자만.
+            count, src, note = vm["people_count"], "vision", "카메라 재실 인원 계수"
+            out["vision_seen_at"] = vm["created_at"]
+        elif count == 0 and config.DEMO_MODE:
+            count, src, note = D.space(r["id"], now_local, r["capacity"]), "demo", "시연용 시뮬레이션 값 (QR 체크인 전)"
         else:
             src, note = "qr", "입구 QR 체크인 집계 · 퇴실을 안 찍으면 4시간 뒤 자동 퇴실"
         ratio = (count / r["capacity"]) if r["capacity"] else 0
@@ -234,12 +268,15 @@ def build_resource_status(conn: sqlite3.Connection, res: sqlite3.Row | dict, now
         count = None
         if row and row["state"] and row["state"].isdigit():
             count = int(row["state"])
+        level = adm["occupancy_level"] if adm and adm["occupancy_level"] else "unknown"
+        src, note = ("admin", "관리자 수동 입력 (목업)") if row else ("none", "데이터 없음 (Could 범위)")
+        if count is None and config.DEMO_MODE:
+            count = D.parking(r["id"], now_local, r["capacity"])
+            ratio = count / r["capacity"] if r["capacity"] else 0
+            level = "relaxed" if ratio < 0.5 else "normal" if ratio < 0.85 else "crowded"
+            src, note = "demo", "시연용 시뮬레이션 값 (주차관제 연동 전)"
         out.update({
-            "occupancy_count": count,
-            "level": adm["occupancy_level"] if adm and adm["occupancy_level"] else "unknown",
-            "level_ko": LEVEL_KO.get(adm["occupancy_level"] if adm else "unknown", "알 수 없음"),
-            "source": "admin" if row else "none",
-            "note": "관리자 수동 입력 (목업)" if row else "데이터 없음 (Could 범위)",
+            "occupancy_count": count, "level": level, "level_ko": LEVEL_KO.get(level, "알 수 없음"), "source": src, "note": note,
         })
     return out
 

@@ -16,7 +16,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import get_conn, init_db, utcnow
 from app.logic import laundry as L
-from app.routers import admin, checkin, laundry, push, reports, resources, stream, vision
+from app import config
+from app.routers import admin, auth, checkin, laundry, push, reports, resources, stream, vision
 from app.services import load_machine_state, process_queue, publish_resource, save_machine_state
 
 
@@ -64,10 +65,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="ERICA 캠퍼스 대기 통합 서비스 API", version="0.1.0", lifespan=lifespan)
 
-# 개발 중엔 어느 출처(휴대폰, Vercel 미리보기 등)에서든 호출 가능하게 엽니다. 배포 시엔 도메인을 제한합니다.
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+# 개발 중엔 어느 출처(휴대폰 등)에서든 호출 가능. 배포 시엔 ALLOWED_ORIGINS 환경변수로 웹앱 도메인만 허용 (config.py).
+app.add_middleware(CORSMiddleware, allow_origins=config.ALLOWED_ORIGINS, allow_methods=["*"], allow_headers=["*"])
 
-for r in (resources.router, vision.router, laundry.router, reports.router, admin.router, stream.router, push.router, checkin.router):
+for r in (resources.router, vision.router, laundry.router, reports.router, admin.router, stream.router, push.router, checkin.router, auth.router):
     app.include_router(r)
 
 

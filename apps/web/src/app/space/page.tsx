@@ -1,0 +1,21 @@
+"use client";
+import { Header } from "@/components/Header";
+import { ResourceCard } from "@/components/ResourceCard";
+import { useT } from "@/lib/i18n";
+import { useRealtime } from "@/lib/realtime";
+
+/** 오픈스페이스 1단계: 건물 목록 (재실/정원). 여유 순으로 정렬. */
+export default function SpaceHub() {
+  const { list } = useRealtime();
+  const t = useT();
+  const spaces = list.filter((r) => r.kind === "space").sort((a, b) => ((a.occupancy_count ?? 0) / (a.capacity ?? 1)) - ((b.occupancy_count ?? 0) / (b.capacity ?? 1)));
+  return (
+    <>
+      <Header title={t("hub.space")} back="/" />
+      <main className="space-y-3 p-4">
+        <p className="text-xs text-muted">여유 있는 곳부터 보여줍니다. 입구 QR 체크인 또는 카메라 인원 계수로 재실 인원을 셉니다.</p>
+        {spaces.map((r) => <ResourceCard key={r.id} r={r} />)}
+      </main>
+    </>
+  );
+}

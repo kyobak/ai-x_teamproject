@@ -1,32 +1,28 @@
 "use client";
 import Link from "next/link";
 import { Header } from "@/components/Header";
-import { PwaSetup } from "@/components/PwaSetup";
-import { ResourceCard } from "@/components/ResourceCard";
+import { HubCard } from "@/components/Hub";
 import { LevelBadge } from "@/components/LevelBadge";
+import { PwaSetup } from "@/components/PwaSetup";
 import { SourceNote } from "@/components/SourceNote";
 import { waitText } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import { useRealtime } from "@/lib/realtime";
 
 /**
- * 통합 대시보드.
- * 맨 위는 디자인 가이드의 시그니처 패턴인 "다크 히어로 + 떠 있는 제품 카드": 지금 가장 빨리 먹을 수 있는 학식 하나를 크게.
- * 그 아래는 흰 캔버스에 종류별 카드. Must(학식·세탁)를 위에, Could(오픈스페이스·주차)를 아래에.
+ * 홈 = 분야 허브. 다크 히어로(가장 빠른 학식) 아래에 4개 분야 타일. 타일을 누르면 세부 목록 → 상세로 내려갑니다.
+ * 각 타일의 요약 한 줄은 실시간 자원 목록에서 계산합니다.
  */
-const SECTIONS = [
-  { kind: "cafeteria", key: "home.sec.cafeteria" },
-  { kind: "laundry", key: "home.sec.laundry" },
-  { kind: "shuttle", key: "home.sec.shuttle" },
-  { kind: "space", key: "home.sec.space" },
-  { kind: "parking", key: "home.sec.parking", mock: true },
-];
-
 export default function Home() {
   const { list, loading, error } = useRealtime();
   const t = useT();
-  // 히어로: 실측/추정 대기시간이 있는 학식 중 가장 짧은 곳
-  const best = list.filter((r) => r.kind === "cafeteria" && r.est_wait_min != null).sort((a, b) => (a.est_wait_min ?? 0) - (b.est_wait_min ?? 0))[0];
+  const cafes = list.filter((r) => r.kind === "cafeteria" && r.est_wait_min != null).sort((a, b) => (a.est_wait_min ?? 0) - (b.est_wait_min ?? 0));
+  const best = cafes[0];
+  const washers = list.filter((r) => r.kind === "laundry");
+  const freeW = washers.filter((r) => r.machine_type === "washer" && r.state === "available").length;
+  const freeD = washers.filter((r) => r.machine_type === "dryer" && r.state === "available").length;
+  const spaces = list.filter((r) => r.kind === "space" && r.occupancy_count != null && r.capacity).sort((a, b) => (a.occupancy_count! / a.capacity!) - (b.occupancy_count! / b.capacity!));
+  const main = list.find((r) => r.id === "shuttle-shuttlecock-hanyang");
   return (
     <>
       <Header title={t("home.title")} dark />
@@ -46,27 +42,28 @@ export default function Home() {
           </Link>
         ) : (
           <div className="mt-3 rounded-[24px] bg-surface-dark-elevated p-6">
-            <p className="font-display text-2xl">{loading ? "불러오는 중…" : "카메라 실측 대기 중"}</p>
-            <p className="mt-1 text-sm text-on-dark-soft">영상 파이프라인이 켜지면 여기에 가장 빠른 학식이 표시됩니다.</p>
+            <p className="font-display text-2xl">{loading ? "불러오는 중…" : "데이터 준비 중"}</p>
           </div>
         )}
       </section>
 
-      <main className="space-y-7 px-4 pb-6 pt-5">
+      <main className="space-y-3 px-4 pb-6 pt-5">
         <PwaSetup />
         {error && <p className="rounded-2xl bg-surface-strong p-3 text-sm text-down">{error}</p>}
-        {SECTIONS.map((s) => {
-          const items = list.filter((r) => r.kind === s.kind);
-          if (!items.length) return null;
-          return (
-            <section key={s.kind}>
-              <h2 className="mb-3 flex items-baseline gap-2 font-display text-base text-ink">
-                {t(s.key)}{s.mock && <span className="pill bg-surface-strong px-2 text-[10px] font-sans font-semibold text-muted">{t("mock")}</span>}
-              </h2>
-              <div className="grid gap-3">{items.map((r) => <ResourceCard key={r.id} r={r} />)}</div>
-            </section>
-          );
-        })}
+        <HubCard href="/laundry" icon="◎" title={t("hub.laundry")} sub={t("hub.laundry.sub")}
+          summary={washers.length ? `지금 빈 세탁기 ${freeW}대 · 건조기 ${freeD}대` : undefined} />
+        <HubCard href="/space" icon="▦" title={t("hub.space")} sub={t("hub.space.sub")}
+          summary={spaces[0] ? `가장 여유: ${spaces[0].zone} ${spaces[0].occupancy_count}/${spaces[0].capacity}` : undefined} />
+        <HubCard href="/shuttle" icon="▷" title={t("hub.shuttle")} sub={t("hub.shuttle.sub")}
+          summary={main ? `셔틀콕→한대앞역 ${main.next_in_min == null ? "운행 종료" : `${main.next_in_min}분 후 출발`} · 줄 ${main.people_count ?? "-"}명` : undefined} />
+        <HubCard href="/cafeteria" icon="◒" title={t("hub.cafeteria")} sub={t("hub.cafeteria.sub")}
+          summary={best ? `가장 빠른 곳: ${best.name} ${waitText(best.est_wait_min)}` : undefined} />
+        {list.filter((r) => r.kind === "parking").map((r) => (
+          <Link key={r.id} href="/admin" className="card flex items-center justify-between p-4 text-sm">
+            <span className="text-body">{r.name} <span className="pill ml-1 bg-surface-strong px-2 text-[10px] text-muted">{t("mock")}</span></span>
+            <span className="font-display text-ink">{r.occupancy_count ?? "—"}{r.capacity ? ` / ${r.capacity}` : ""}</span>
+          </Link>
+        ))}
       </main>
     </>
   );

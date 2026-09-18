@@ -102,6 +102,14 @@ CREATE TABLE IF NOT EXISTS checkins (
     checked_out_at TEXT                   -- NULL = 재실 중
 );
 CREATE INDEX IF NOT EXISTS idx_checkins_open ON checkins(resource_id, checked_out_at);
+CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    nickname      TEXT NOT NULL UNIQUE,     -- 닉네임만. 학번·실명은 받지 않음 (REQ-SYS-01)
+    password_hash TEXT NOT NULL,            -- PBKDF2-SHA256, salt 포함
+    token         TEXT,                     -- 로그인 토큰 (Bearer)
+    prefs         TEXT NOT NULL DEFAULT '{}',   -- 기숙사 동, 자주 가는 식당, 알림 설정 등 (JSON)
+    created_at    TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS menus (
     resource_id TEXT NOT NULL,
     date        TEXT NOT NULL,            -- YYYY-MM-DD
@@ -113,22 +121,39 @@ CREATE TABLE IF NOT EXISTS menus (
 # ---------------------------------------------------------------------------
 # 시드 데이터: 데모에 필요한 자원 목록. 실제 학교 자원명은 조사 후 바꿉니다.
 # ---------------------------------------------------------------------------
-SEED_RESOURCES = [
-    # 슬라이스 A: 학식 (Must). 식당·운영시간·푸드코트 매장은 아래 _food_resources() 가 복지포털 데이터(jobs/data/campus_food.json)에서 만듭니다.
-    # Should: 셔틀 (같은 비전 모듈 재사용 + 시간표)
-    ("shuttle-1", "shuttle", "셔틀콕", "셔틀콕 → 한대앞역", 45, "vision",
-     {"timetable": ["08:00", "08:20", "08:40", "09:00", "09:20", "09:40", "10:00", "10:30", "11:00", "11:30",
-                    "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
-                    "17:00", "17:20", "17:40", "18:00", "18:20", "18:40", "19:00", "19:30", "20:00", "21:00", "22:00"]}),
-    # 슬라이스 B: 세탁실 (Must) — 진동 센서
-    ("laundry-w1", "laundry", "창의인재원 A동 세탁실", "세탁기 1", None, "sensor", {"type": "washer"}),
-    ("laundry-w2", "laundry", "창의인재원 A동 세탁실", "세탁기 2", None, "sensor", {"type": "washer"}),
-    ("laundry-w3", "laundry", "창의인재원 A동 세탁실", "세탁기 3", None, "sensor", {"type": "washer"}),
-    ("laundry-d1", "laundry", "창의인재원 A동 세탁실", "건조기 1", None, "sensor", {"type": "dryer"}),
-    # Could: 목업
-    ("space-1", "space", "공학관 3층", "오픈스페이스", 40, "qr", {}),
-    ("parking-1", "parking", "정문", "정문 주차장", 120, "admin", {}),
-]
+# 세탁실: 기숙사 3개 관. 팀 조사 결과 세탁기 인재관 3·창의관 6·행복관 3, 건조기도 같은 수.
+LAUNDRY_BUILDINGS = [("injae", "인재관", 3), ("changui", "창의관", 6), ("haengbok", "행복관", 3)]
+
+
+def _laundry_resources() -> list[tuple]:
+    out = []
+    for key, name, n in LAUNDRY_BUILDINGS:
+        for i in range(1, n + 1):
+            out.append((f"laundry-{key}-w{i}", "laundry", f"{name} 세탁실", f"세탁기 {i}", None, "sensor", {"type": "washer", "building": key}))
+        for i in range(1, n + 1):
+            out.append((f"laundry-{key}-d{i}", "laundry", f"{name} 세탁실", f"건조기 {i}", None, "sensor", {"type": "dryer", "building": key}))
+    return out
+
+
+# 오픈스페이스: 단과대·건물별 5곳. 정원은 목업(현장 확인 후 수정).
+SPACES = [("space-yunghap", "융합교육관", "융합교육관 오픈스페이스", 60), ("space-gym", "체육관", "체육관 라운지", 40),
+          ("space-gyeongsang", "경상관", "경상관 오픈스페이스", 50), ("space-solseong", "솔성관", "솔성관 오픈스페이스", 40),
+          ("space-gwagi", "과학기술대학", "과기대 오픈스페이스", 50)]
+
+# 셔틀: 정류장·방향별 자원. 시간표는 jobs/data/shuttle_timetable.json (직접 노선 기준 소요: 창의인재원→셔틀콕 5분, 셔틀콕→한대앞역 10분).
+SHUTTLES = [("shuttle-shuttlecock-hanyang", "셔틀콕", "셔틀콕 → 한대앞역", "shuttlecock_to_hanyang"),
+            ("shuttle-residence-shuttlecock", "창의인재원", "창의인재원 → 셔틀콕", "residence_to_shuttlecock"),
+            ("shuttle-hanyang-campus", "한대앞역", "한대앞역 → 셔틀콕·창의인재원", "hanyang_to_shuttlecock"),
+            ("shuttle-shuttlecock-apt", "셔틀콕", "셔틀콕 → 예술인APT", "shuttlecock_to_apt"),
+            ("shuttle-apt-campus", "예술인APT", "예술인APT → 셔틀콕·창의인재원", "apt_to_shuttlecock")]
+
+SEED_RESOURCES = (
+    _laundry_resources()
+    + [(rid, "space", zone, name, cap, "qr", {}) for rid, zone, name, cap in SPACES]
+    # 셔틀콕→한대앞역만 카메라 1순위(학식 비전 모듈 재사용), 나머지는 제보/데모
+    + [(rid, "shuttle", zone, name, 45, "vision" if i == 0 else "report", {"direction": d}) for i, (rid, zone, name, d) in enumerate(SHUTTLES)]
+    + [("parking-1", "parking", "정문", "정문 주차장", 120, "admin", {})]
+)
 
 
 def _clean_hours(t: str | None) -> str:
@@ -210,10 +235,20 @@ def get_conn():
         conn.close()
 
 
+def _migrate(conn: sqlite3.Connection) -> None:
+    """기존 DB 에 새 컬럼을 추가하는 간단한 마이그레이션. 이미 있으면 건너뜁니다."""
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(vision_metrics)")}
+    if "avg_dwell_sec" not in cols:
+        conn.execute("ALTER TABLE vision_metrics ADD COLUMN avg_dwell_sec REAL")
+    if "zone_type" not in cols:
+        conn.execute("ALTER TABLE vision_metrics ADD COLUMN zone_type TEXT")
+
+
 def init_db() -> None:
-    """앱 시작 시 한 번: 테이블 생성 + 자원/예측/메뉴 시드."""
+    """앱 시작 시 한 번: 테이블 생성 + 마이그레이션 + 자원/예측/메뉴 시드."""
     with get_conn() as conn:
         conn.executescript(SCHEMA)
+        _migrate(conn)
         for rid, kind, zone, name, cap, source, extra in _food_resources() + SEED_RESOURCES:
             # 시드 자원은 upsert: 코드에서 이름·구역·extra 를 고치면 기존 DB 에도 반영됩니다. (관리자가 등록한 다른 id 는 건드리지 않음)
             conn.execute(

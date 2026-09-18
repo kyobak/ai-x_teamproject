@@ -17,6 +17,8 @@ class VisionMetricIn(BaseModel):
     throughput_per_min: float | None = Field(default=None, ge=0, description="통과선이 시야에 없으면 None")
     confidence: float = Field(ge=0, le=1)
     device_id: str = "edge-demo"
+    avg_dwell_sec: float | None = Field(default=None, ge=0, description="구역 안 평균 체류 시간(초). 추적 ID 로 계산")
+    zone_type: str | None = Field(default=None, pattern=r"^(queue|room)$", description="queue=대기줄, room=실내 재실")
 
 
 class VibrationSampleIn(BaseModel):
@@ -65,3 +67,18 @@ class ResourceIn(BaseModel):
     capacity: int | None = None
     source: str = "admin"       # vision | sensor | qr | admin | report
     extra: dict = {}
+
+
+class AuthIn(BaseModel):
+    nickname: str = Field(min_length=2, max_length=20)
+    password: str = Field(min_length=4, max_length=64)
+
+
+class PrefsIn(BaseModel):
+    """내 정보 페이지. 전부 선택 항목이며 학번·실명은 없습니다."""
+    dorm: str | None = None             # injae | changui | haengbok | none
+    favorite_cafeteria: str | None = None
+    default_stop: str | None = None     # 셔틀 기본 정류장 자원 id
+    notify_queue: bool = True
+    notify_shuttle: bool = False
+    lang: str = "ko"

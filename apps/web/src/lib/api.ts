@@ -37,7 +37,16 @@ export interface Resource {
   hours?: string | null;
   next_departures?: string[];
   buses_to_wait?: number | null;
+  // shuttle (시간표 기반)
+  direction?: string;
+  upcoming?: { time: string; in_min: number }[];
+  next_in_min?: number | null;
+  board_time?: string | null;
+  board_in_min?: number | null;
+  board_note?: string;
+  travel_min?: number | null;
   // laundry
+  building?: string;
   machine_type?: "washer" | "dryer";
   state?: "available" | "in_use" | "unknown";
   state_label?: string;
@@ -50,6 +59,9 @@ export interface Resource {
   // space / parking
   occupancy_count?: number | null;
 }
+
+export interface AuthUser { token: string; nickname: string; prefs: Prefs; created_at?: string }
+export interface Prefs { dorm?: string | null; favorite_cafeteria?: string | null; default_stop?: string | null; notify_queue?: boolean; notify_shuttle?: boolean; lang?: string }
 
 export interface MyTicket {
   id: number;
@@ -94,4 +106,10 @@ export const api = {
   checkinMe: (id: string, deviceId: string) => fetch(`${apiBase()}/api/checkin/${id}/me?device_id=${encodeURIComponent(deviceId)}`).then((r) => json<{ checked_in: boolean }>(r)),
   qrUrl: (id: string) => `${apiBase()}/api/checkin/${id}/qr.png?base=${encodeURIComponent(typeof window !== "undefined" ? window.location.origin : "")}`,
   pushTest: (deviceId: string) => post(`/api/push/test`, { device_id: deviceId }).then((r) => json<unknown>(r)),
+  register: (nickname: string, password: string) => post(`/api/auth/register`, { nickname, password }).then((r) => json<AuthUser>(r)),
+  login: (nickname: string, password: string) => post(`/api/auth/login`, { nickname, password }).then((r) => json<AuthUser>(r)),
+  me: (token: string) => fetch(`${apiBase()}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => json<AuthUser>(r)),
+  savePrefs: (token: string, prefs: Prefs) =>
+    fetch(`${apiBase()}/api/auth/me/prefs`, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(prefs) }).then((r) => json<AuthUser>(r)),
+  logout: (token: string) => fetch(`${apiBase()}/api/auth/logout`, { method: "POST", headers: { Authorization: `Bearer ${token}` } }).then((r) => json<unknown>(r)),
 };

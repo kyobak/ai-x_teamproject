@@ -1,5 +1,9 @@
 """
-영상 파일 → 사람 검출 → 줄 구역 인원 + 통과선 처리율 → 숫자만 서버로 전송.
+영상 파일 → 사람 검출 → 구역별 인원 + 통과선 처리율 + 체류시간 → 숫자만 서버로 전송.
+
+한 영상에서 여러 구역을 동시에 분석합니다 (zone 파일의 "zones" 배열). 구역 종류:
+  - queue: 대기줄. 인원 + 통과선 처리율 + 평균 체류시간(줄 선 시간) → 학식·셔틀
+  - room : 실내. 다각형 안 인원 = 재실 인원 → 오픈스페이스
 
 계획서 "처리 파이프라인" 6단계를 그대로 코드로 옮겼습니다:
   1. 프레임 입력      : 영상 파일(데모) 또는 웹캠(--source 0). 디스크에 쓰지 않습니다.
@@ -41,9 +45,40 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 PERSON_CLASS_ID = 0   # COCO 데이터셋에서 0 = person
 
 
-def load_zone(path: Path) -> dict:
+def load_zones(path: Path, default_resource: str) -> list[dict]:
+    """zone 파일을 읽어 구역 목록으로 정규화합니다.
+    새 형식: {"zones": [{"resource_id", "type": "queue"|"room", "polygon", "pass_line"}]}
+    옛 형식(구역 하나): {"queue_polygon", "pass_line"} → resource_id 는 --resource 값."""
     with open(path, encoding="utf-8") as f:
-        return json.load(f)
+        cfg = json.load(f)
+    if "zones" in cfg:
+        return cfg["zones"]
+    return [{"resource_id": default_resource, "type": "queue", "polygon": cfg["queue_polygon"],
+             "pass_line": cfg.get("pass_line"), "line_count_direction": cfg.get("line_count_direction", "both")}]
+
+
+class DwellTracker:
+    """추적 ID 별로 구역에 처음 들어온 시각을 기억해 '평균 체류 시간' 을 냅니다.
+    줄에서는 = 실제로 기다린 시간(대기시간 계산의 검증값), 실내에서는 = 머무는 시간."""
+
+    def __init__(self, window_sec: float = 120.0):
+        self.first_seen: dict[int, float] = {}
+        self.finished: deque[tuple[float, float]] = deque()   # (나간 시각, 체류 초)
+        self.window = window_sec
+
+    def update(self, ids_in_zone: set[int], t: float) -> None:
+        for i in ids_in_zone:
+            self.first_seen.setdefault(i, t)
+        for i in list(self.first_seen):
+            if i not in ids_in_zone:
+                self.finished.append((t, t - self.first_seen.pop(i)))
+        while self.finished and t - self.finished[0][0] > self.window:
+            self.finished.popleft()
+
+    def avg_sec(self) -> float | None:
+        if not self.finished:
+            return None
+        return round(sum(d for _, d in self.finished) / len(self.finished), 1)
 
 
 class ThroughputCounter:
@@ -98,25 +133,29 @@ def main() -> None:
         else:
             sys.exit("영상이 없습니다. vision/samples/demo.mp4 를 넣거나 vision/download_sample.py 를 실행하세요.")
 
-    zone_cfg = load_zone(Path(args.zone))
-    polygon = np.array(zone_cfg["queue_polygon"], dtype=np.int64)
-    line = zone_cfg["pass_line"]
-    has_line = line is not None   # 통과선을 못 보는 현장(REQ-VIS-05)이면 zone 파일에서 null 로 둡니다.
-
+    zones_cfg = load_zones(Path(args.zone), args.resource)
     model = YOLO(args.model)
     tracker = sv.ByteTrack()
-    queue_zone = sv.PolygonZone(polygon=polygon, triggering_anchors=(sv.Position.BOTTOM_CENTER,))
-    line_zone = (
-        sv.LineZone(start=sv.Point(*line["start"]), end=sv.Point(*line["end"]),
-                    triggering_anchors=(sv.Position.BOTTOM_CENTER,))
-        if has_line else None
-    )
-    throughput = ThroughputCounter(window_sec=60.0, t0=0.0)
 
-    # --show 용 주석 도구. 결과를 화면에 그리기만 합니다.
-    box_annot = sv.BoxAnnotator(thickness=2)
-    zone_annot = sv.PolygonZoneAnnotator(zone=queue_zone, color=sv.Color.GREEN, thickness=3)
-    line_annot = sv.LineZoneAnnotator(thickness=3, text_scale=1.0) if has_line else None
+    def build_zones():
+        """구역별 계수 도구 묶음. 루프 재생 시 다시 만들기 위해 함수로 둡니다."""
+        built = []
+        for z in zones_cfg:
+            poly = np.array(z["polygon"], dtype=np.int64)
+            line = z.get("pass_line")
+            pz = sv.PolygonZone(polygon=poly, triggering_anchors=(sv.Position.BOTTOM_CENTER,))
+            lz = sv.LineZone(start=sv.Point(*line["start"]), end=sv.Point(*line["end"]),
+                             triggering_anchors=(sv.Position.BOTTOM_CENTER,)) if line else None
+            built.append({
+                "cfg": z, "zone": pz, "line": lz, "thr": ThroughputCounter(60.0, 0.0), "dwell": DwellTracker(),
+                "counts": deque(), "conf": deque(maxlen=50),
+                "zone_annot": sv.PolygonZoneAnnotator(zone=pz, color=sv.Color.GREEN if z.get("type", "queue") == "queue" else sv.Color.BLUE, thickness=3),
+                "line_annot": sv.LineZoneAnnotator(thickness=3, text_scale=1.0) if lz else None,
+            })
+        return built
+
+    zones = build_zones()
+    box_annot = sv.BoxAnnotator(thickness=2)   # --show 용. 화면에 그리기만 함
 
     src = int(args.source) if str(args.source).isdigit() else args.source
     cap = cv2.VideoCapture(src)
@@ -125,8 +164,6 @@ def main() -> None:
     fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
     is_file = not isinstance(src, int)
 
-    counts_window: deque[tuple[float, int]] = deque()   # (시각, 구역 인원)
-    conf_window: deque[float] = deque(maxlen=50)
     last_sent = 0.0
     frame_idx = 0
     video_t = 0.0        # 영상 내 시각(초). 파일 재생은 이 시계를, 웹캠은 실제 시계를 씁니다.
@@ -139,9 +176,9 @@ def main() -> None:
         if not ok:
             if is_file and args.loop:
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                # 반복 재생 시 추적 ID 가 이어지지 않도록 트래커를 새로 만듭니다.
+                # 반복 재생 시 추적 ID 가 이어지지 않도록 트래커와 구역 계수기를 새로 만듭니다.
                 tracker = sv.ByteTrack()
-                throughput = ThroughputCounter(window_sec=60.0, t0=0.0)
+                zones = build_zones()
                 frame_idx = 0
                 wall_start = time.time()
                 continue
@@ -157,50 +194,58 @@ def main() -> None:
         # 4. 추적 (통과선 계수엔 같은 사람을 두 번 세지 않기 위한 ID 가 필요)
         det = tracker.update_with_detections(det)
 
-        # 3. 줄 구역 안의 사람 수
-        in_zone = queue_zone.trigger(det)
-        zone_count = int(in_zone.sum())
-        counts_window.append((video_t, zone_count))
-        while counts_window and video_t - counts_window[0][0] > args.smooth_sec:
-            counts_window.popleft()
-        smoothed = int(statistics.median(c for _, c in counts_window))
-        if len(det.confidence) > 0:
-            conf_window.extend(det.confidence.tolist())
+        # 3~5. 구역별 인원·처리율·체류시간 계산
+        results = []
+        for zc in zones:
+            in_zone = zc["zone"].trigger(det)
+            zone_count = int(in_zone.sum())
+            zc["counts"].append((video_t, zone_count))
+            while zc["counts"] and video_t - zc["counts"][0][0] > args.smooth_sec:
+                zc["counts"].popleft()
+            smoothed = int(statistics.median(c for _, c in zc["counts"]))
+            if len(det.confidence) > 0:
+                zc["conf"].extend(det.confidence[in_zone].tolist() if in_zone.any() else det.confidence.tolist())
+            ids = set(int(i) for i in det.tracker_id[in_zone]) if det.tracker_id is not None and in_zone.any() else set()
+            zc["dwell"].update(ids, video_t)
+            thr = None
+            if zc["line"] is not None:
+                ci, co = zc["line"].trigger(det)
+                n_cross = int(ci.sum() + co.sum()) if zc["cfg"].get("line_count_direction", "both") == "both" else int(ci.sum())
+                zc["thr"].add(video_t, n_cross)
+                thr = zc["thr"].per_minute(video_t)
+            est = round(smoothed / thr, 1) if thr else None
+            confidence = round(float(np.mean(zc["conf"])), 3) if zc["conf"] else 0.0
+            results.append({"resource_id": zc["cfg"]["resource_id"], "zone_type": zc["cfg"].get("type", "queue"),
+                            "people_count": smoothed, "throughput_per_min": thr, "confidence": confidence,
+                            "avg_dwell_sec": zc["dwell"].avg_sec(), "device_id": args.device_id, "_raw": zone_count, "_est": est})
 
-        # 4. 통과선 처리율
-        if line_zone is not None:
-            crossed_in, crossed_out = line_zone.trigger(det)
-            n_cross = int(crossed_in.sum() + crossed_out.sum()) if zone_cfg.get("line_count_direction", "both") == "both" else int(crossed_in.sum())
-            throughput.add(video_t, n_cross)
-        thr = throughput.per_minute(video_t) if line_zone is not None else None
-
-        # 5. 대기시간 (참고 출력; 서버가 다시 계산)
-        est = round(smoothed / thr, 1) if thr else None
-        confidence = round(float(np.mean(conf_window)), 3) if conf_window else 0.0
-
-        # 6. 숫자만 전송 (interval 초마다)
+        # 6. 숫자만 전송 (interval 초마다, 구역마다 1건)
         if time.time() - last_sent >= args.interval:
             last_sent = time.time()
-            payload = {"resource_id": args.resource, "people_count": smoothed,
-                       "throughput_per_min": thr, "confidence": confidence, "device_id": args.device_id}
-            print(f"t={video_t:6.1f}s zone={zone_count:2d} smoothed={smoothed:2d} thr/min={thr} est_wait={est} conf={confidence}")
-            if not args.dry_run:
-                try:
-                    session.post(f"{args.api}/api/vision/metrics", json=payload,
-                                 headers={"X-Device-Key": args.device_key}, timeout=3)
-                except requests.RequestException as e:
-                    print("  [send failed]", e)
+            for res in results:
+                payload = {k: v for k, v in res.items() if not k.startswith("_")}
+                print(f"t={video_t:6.1f}s [{res['resource_id']}/{res['zone_type']}] raw={res['_raw']:2d} n={res['people_count']:2d} "
+                      f"thr/min={res['throughput_per_min']} wait={res['_est']} dwell={res['avg_dwell_sec']}s conf={res['confidence']}")
+                if not args.dry_run:
+                    try:
+                        session.post(f"{args.api}/api/vision/metrics", json=payload,
+                                     headers={"X-Device-Key": args.device_key}, timeout=3)
+                    except requests.RequestException as e:
+                        print("  [send failed]", e)
 
         if args.show:
             vis = box_annot.annotate(frame.copy(), det)
-            vis = zone_annot.annotate(vis)
-            if line_annot:
-                vis = line_annot.annotate(vis, line_zone)
-            cv2.putText(vis, f"queue={smoothed}  thr/min={thr}  wait={est}min", (30, 60),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0, 255, 255), 3)
+            for zc, res in zip(zones, results):
+                vis = zc["zone_annot"].annotate(vis)
+                if zc["line_annot"]:
+                    vis = zc["line_annot"].annotate(vis, zc["line"])
+            y = 60
+            for res in results:
+                cv2.putText(vis, f"{res['resource_id']}: n={res['people_count']} thr={res['throughput_per_min']} wait={res['_est']} dwell={res['avg_dwell_sec']}",
+                            (30, y), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 2)
+                y += 36
             cv2.imshow("queue counter (not recorded)", vis)
-            # 종료 키는 ESC 만. 예전엔 'q' 였는데, 영상 창이 포커스를 가진 채로 한글을 타이핑하면
-            # ㅂ(=q 키) 이 들어와 프로그램이 조용히 꺼지는 사고가 실제로 있었습니다.
+            # 종료 키는 ESC 만. 'q' 는 한글 ㅂ 입력에 반응해 조용히 꺼지는 사고가 있었습니다.
             if cv2.waitKey(1) & 0xFF == 27:
                 print("[vision] ESC 입력으로 종료")
                 break

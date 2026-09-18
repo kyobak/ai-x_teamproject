@@ -9,7 +9,7 @@
 | **영상은 저장하지 않는다** | `vision/run_video.py` 는 프레임을 메모리에서만 처리. `imwrite`/`VideoWriter` 없음. `--show` 는 화면 표시만. `.gitignore` 가 `*.mp4 *.jpg` 등 차단 |
 | **숫자만 전송한다** | `POST /api/vision/metrics` 는 `people_count, throughput_per_min, confidence` 만 받고, 정의되지 않은 필드는 422 거부 (`models.VisionMetricIn`, `extra="forbid"`). `vision_metrics` 테이블에 이미지·좌표 컬럼 없음 |
 | **식별하지 않는다** | 얼굴 인식·재식별·성별/연령 추정 코드 없음. ByteTrack 의 추적 ID 는 통과선 계수에만 쓰고 전송·저장하지 않음 |
-| **학번·이름·위치를 저장하지 않는다** (REQ-SYS-01) | 사용자는 localStorage 의 익명 UUID(`apps/web/src/lib/device.ts`). 제보는 기기 ID 를 SHA-256 해시로만 저장. GPS API 호출 없음, 정류장은 직접 선택. `tests/test_api.py::test_req_sys_01_*` 가 스키마를 검사 |
+| **학번·이름·위치를 저장하지 않는다** (REQ-SYS-01) | 사용자는 localStorage 의 익명 UUID(`apps/web/src/lib/device.ts`). 계정(`routers/auth.py`)도 닉네임+비밀번호 해시만 받고 학번·실명·이메일 필드가 없음. 제보는 기기 ID 를 SHA-256 해시로만 저장. GPS API 호출 없음, 정류장은 직접 선택. `tests/test_api.py::test_req_sys_01_*` 가 스키마를 검사 |
 | **동의** | 연출 영상 참여자 동의서(목적·보관 기한·철회 방법) 필수. 데모데이 라이브는 촬영 구역 한정 + 안내문 + 자원자만 |
 | **실물 우선** | 세탁 대기열은 예약이 아닌 안내. 앱 비사용자가 먼저 쓰면 센서가 사용 중으로 잡고 호출 티켓은 정리됨 (`routers/laundry.py` started 이벤트 처리) |
 | **제보 조작 대응** | 10분 빈도 제한(REQ-RPT-01), 30분 만료, 영상 실측이 있으면 제보보다 우선 |
@@ -28,3 +28,6 @@
 
 ## 이번 학기 하지 않는 것 (Won't)
 현장 영상 저장, 클라우드 비전 API 로 프레임 전송, 얼굴 인식, 허가 없는 카메라 설치, 사용자 GPS 수집, 강제력 있는 세탁기 예약, 학번 로그인, 결제.
+
+## 데모 모드
+실측이 없는 자원에 시연용 가상 값을 채우는 `DEMO_MODE` 는 화면에 항상 "시연용 시뮬레이션" 으로 출처를 표시합니다. 실측이 들어오면 즉시 실측이 우선하며, 실사용 배포에서는 끕니다.

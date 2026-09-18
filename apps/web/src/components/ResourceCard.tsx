@@ -6,21 +6,27 @@ import { useT } from "@/lib/i18n";
 import { LevelBadge } from "./LevelBadge";
 import { SourceNote } from "./SourceNote";
 
-/** 대시보드의 자원 카드(24px 라운드, 헤어라인, 그림자 없음). 종류별로 핵심 숫자 하나만 크게 보여줍니다. */
+/** 목록 화면의 자원 카드. 종류별로 핵심 숫자 하나만 크게. 클릭하면 상세로. */
+export function resourceHref(r: Resource): string {
+  switch (r.kind) {
+    case "cafeteria": return `/cafeteria/${r.id}`;
+    case "shuttle": return `/shuttle/${r.id}`;
+    case "laundry": return `/laundry/${r.building ?? ""}`;
+    case "space": return `/space/${r.id}`;
+    default: return "/admin";
+  }
+}
+
 export function ResourceCard({ r }: { r: Resource }) {
   const t = useT();
-  const href =
-    r.kind === "cafeteria" ? `/cafeteria/${r.id}` :
-    r.kind === "shuttle" ? "/shuttle" :
-    r.kind === "laundry" ? "/laundry" :
-    r.kind === "space" ? `/checkin/${r.id}` : "/admin";
-
   let big = "—";
   let sub = "";
-  if (r.kind === "cafeteria" || r.kind === "shuttle") {
+  if (r.kind === "cafeteria") {
     big = r.est_wait_min != null ? waitText(r.est_wait_min) : t(`level.${r.level ?? "unknown"}`);
     sub = r.people_count != null ? `${t("queue.people")} ${r.people_count}${t("people.unit")}` : "";
-    if (r.kind === "shuttle" && r.buses_to_wait != null) sub += ` · ${r.buses_to_wait === 0 ? t("shuttle.next") : `${r.buses_to_wait}${t("shuttle.later")}`}`;
+  } else if (r.kind === "shuttle") {
+    big = r.next_in_min == null ? "운행 종료" : r.next_in_min === 0 ? "지금 출발" : `${r.next_in_min}분 후`;
+    sub = (r.people_count != null ? `${t("queue.people")} ${r.people_count}${t("people.unit")} · ` : "") + (r.board_time ? `지금 서면 ${r.board_time} 차` : "");
   } else if (r.kind === "laundry") {
     big = r.state === "available" ? t("laundry.available")
       : r.state === "in_use" ? (r.remaining_min == null ? t("laundry.in_use") : r.remaining_min === 0 ? t("laundry.soon") : `${r.remaining_min}${t("laundry.minleft")}`)
@@ -28,26 +34,25 @@ export function ResourceCard({ r }: { r: Resource }) {
     sub = r.queue_length ? `${t("laundry.waiting")} ${r.queue_length}${t("people.unit")}` : "";
   } else {
     big = r.occupancy_count != null ? `${r.occupancy_count}${r.capacity ? ` / ${r.capacity}` : ""}` : t(`level.${r.level ?? "unknown"}`);
+    sub = r.capacity && r.occupancy_count != null ? `잔여 ${Math.max(0, r.capacity - r.occupancy_count)}` : "";
   }
-
-  const showLevel = r.kind !== "laundry";
   return (
-    <Link href={href} className="card block p-5 transition active:bg-surface-soft">
+    <Link href={resourceHref(r)} className="card block p-5 transition active:bg-surface-soft">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs text-muted">{r.zone}</p>
           <h3 className="truncate font-display text-base text-ink">{r.name}</h3>
         </div>
-        {showLevel && <LevelBadge level={r.level} size="sm" />}
+        {r.kind !== "laundry" && <LevelBadge level={r.level} size="sm" />}
         {r.kind === "laundry" && (
-          <span className={`pill px-2.5 py-0.5 text-[11px] font-semibold ${r.state === "in_use" ? "bg-surface-strong text-in-use" : "bg-surface-strong text-body"}`}>
+          <span className={`pill px-2.5 py-0.5 text-[11px] font-semibold bg-surface-strong ${r.state === "in_use" ? "text-in-use" : "text-body"}`}>
             {r.machine_type === "dryer" ? "건조기" : "세탁기"}
           </span>
         )}
       </div>
       <p className="mt-3 font-display text-3xl tabular-nums text-ink">{big}</p>
       {sub && <p className="mt-0.5 text-sm text-body">{sub}</p>}
-      {(r.kind === "cafeteria" || r.kind === "shuttle" || r.kind === "space") && <div className="mt-1.5"><SourceNote source={r.source} note={r.note} seenAt={r.vision_seen_at} /></div>}
+      <div className="mt-1.5"><SourceNote source={r.source} note={r.note} seenAt={r.vision_seen_at} /></div>
     </Link>
   );
 }

@@ -1,0 +1,23 @@
+# Render.com 배포 설정 (Fly 대안). 대시보드에서 "Blueprint" 로 이 파일을 가리키면 됩니다.
+services:
+  - type: web
+    name: erica-wait-api
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    plan: starter
+    healthCheckPath: /api/health
+    disk:
+      name: data
+      mountPath: /app/server/data
+      sizeGB: 1
+    envVars:
+      - key: DEMO_MODE
+        value: "1"
+      - key: EDGE_API_KEY
+        generateValue: true
+      - key: ADMIN_PIN
+        sync: false
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        sync: false   # 예: https://erica-wait.vercel.app

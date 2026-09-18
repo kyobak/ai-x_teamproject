@@ -12,7 +12,7 @@ const char* WIFI_SSID = "...";
 const char* WIFI_PASS = "...";
 const char* API = "http://192.168.0.10:8000/api/sensors/vibration";  // 서버 노트북 IP
 const char* DEVICE_KEY = "dev-edge-key";
-const char* RESOURCE_ID = "laundry-w1";
+const char* RESOURCE_ID = "laundry-changui-w1";
 
 Adafruit_MPU6050 mpu;
 const int SAMPLE_HZ = 100;

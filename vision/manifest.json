@@ -1,0 +1,22 @@
+{
+  "_comment": "vision/run_all.py 가 읽는 목록. 영상마다 프로세스 하나. source 가 없으면 demo.mp4 → people-walking.mp4 순으로 찾음.",
+  "jobs": [
+    {
+      "name": "cafeteria+shuttle+space (multi-zone demo)",
+      "zone": "vision/zones/multi-demo.json",
+      "args": [
+        "--loop"
+      ]
+    },
+    {
+      "name": "cafeteria-2 (창의인재원식당)",
+      "zone": "vision/zones/cafeteria-1.json",
+      "resource": "cafeteria-2",
+      "args": [
+        "--loop",
+        "--interval",
+        "3"
+      ]
+    }
+  ]
+}

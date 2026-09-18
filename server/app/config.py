@@ -71,6 +71,17 @@ VAPID_CLAIMS_SUB = os.getenv("VAPID_CLAIMS_SUB", "mailto:team09@example.com")
 # 체크아웃을 안 찍고 나간 사람은 이 시간(분) 뒤 자동 퇴실 처리합니다.
 CHECKIN_AUTO_EXPIRE_MINUTES = int(os.getenv("CHECKIN_AUTO_EXPIRE_MINUTES", "240"))
 
+# ---------- 데모 모드 ----------
+# 1 이면 실측·제보·관리자 입력이 전혀 없는 자원에 시연용 가상 값을 채웁니다 (logic/demo.py, source="demo" 로 표시).
+# 실측이 들어오면 실측이 우선. 실사용 배포에서는 0 으로 두세요.
+DEMO_MODE = os.getenv("DEMO_MODE", "1") == "1"
+
+# ---------- 배포 ----------
+# 배포 시 웹앱 주소만 허용: ALLOWED_ORIGINS="https://erica-wait.vercel.app,https://..." (비우면 전체 허용 = 개발용)
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()] or ["*"]
+# 계정 토큰 서명용 비밀값. 배포 시 반드시 바꾸세요.
+AUTH_SECRET = os.getenv("AUTH_SECRET", "dev-auth-secret-change-me")
+
 # ---------- 시연 배속 ----------
 # DEMO_TIME_SCALE=20 으로 서버를 띄우면 위의 "초/분" 상수가 전부 1/20 이 됩니다 (30초→1.5초, 5분→15초, 50분→2.5분).
 # sensors/simulate_washer.py --speed 20 --no-virtual-ts 와 함께 쓰면, 실제 시계 기준으로 상태 전이와 남은 시간이 맞게 보입니다.

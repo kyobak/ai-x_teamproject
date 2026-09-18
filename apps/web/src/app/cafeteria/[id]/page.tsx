@@ -27,14 +27,14 @@ export default function CafeteriaPage() {
     api.history(id).then((rows) => setHist(rows.map((x) => Number(x.people_count ?? 0)))).catch(() => {});
   }, [id, r?.updated_at]);
 
-  if (!r) return (<><Header title="학식" back="/" /><p className="p-4 text-sm text-muted">불러오는 중…</p></>);
+  if (!r) return (<><Header title="학식" back="/cafeteria" /><p className="p-4 text-sm text-muted">불러오는 중…</p></>);
   const measured = r.source === "vision" || r.source === "vision-fallback-throughput";
   const meals = ["breakfast", "lunch", "dinner"].map((m) => ({ m, items: (r.menu ?? []).filter((x) => x.meal === m) })).filter((g) => g.items.length);
   const flat = (r.menu ?? []).filter((x) => !x.meal);
 
   return (
     <>
-      <Header title={r.name} back="/" />
+      <Header title={r.name} back="/cafeteria" />
       <main className="space-y-4 p-4">
         <section className="card p-6">
           <p className="text-xs text-muted">{r.zone}{r.hours ? ` · ${r.hours}` : ""}</p>

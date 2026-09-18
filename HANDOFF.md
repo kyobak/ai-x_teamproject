@@ -39,7 +39,9 @@
 | 메뉴·시설 크롤러 | `jobs/crawl_menu.py` → `jobs/data/campus_food.json` | ✅ | 식단(mock-data.js) + 시설안내 48곳(HTML 내 JSON). 푸드코트 매장 9곳 반영 |
 | 휴대폰 센서 | `apps/web/src/app/sensor` | ✅ | iOS 는 HTTPS 필요 |
 | 모델 비교 | `vision/eval/compare_models.py` | ✅ 스크립트 | 정답 CSV 는 팀이 작성 |
-| Docker | `docker-compose.yml` | ⏳ 미검증 | 로컬 시연은 4-프로세스 방식 권장 |
+| 배포 | `fly.toml`, `render.yaml`, `apps/web/vercel.json`, `.github/workflows/ci.yml`, `docs/deploy.md` | ✅ 파일 | 계정 연결·`fly deploy`·`vercel --prod` 는 팀이 실행 |
+| 계정 | `server/app/routers/auth.py`, `apps/web/src/app/{login,me}` | ✅ | 닉네임+PBKDF2. 학번 없음 |
+| 데모 모드 | `server/app/logic/demo.py` | ✅ | 실측 들어오면 실측 우선 |
 | 배포(Vercel 등) | — | ❌ | 로컬 시연이 목표라 미룸 |
 
 ## 3. 알아둬야 할 설계 결정 (자세한 건 docs/adr/)
@@ -84,3 +86,4 @@ curl -s localhost:8000/api/resources | python3 -m json.tool      # 현재 상태
 ## 7. 작업 일지
 - **2026-09-18 (Claude, 1차)**: 저장소 구조 확정, 백엔드·로직·테스트, 비전 파이프라인, 세탁 시뮬레이터, 웹앱 5개 화면, PWA, README/ETHICS/PROMPTS/ADR/specs 작성. 로컬 E2E 확인(휴대폰 뷰포트 스크린샷, 대기열 호출 배너). Figma 5화면 와이어프레임 + 색 토큰 생성(Figma MCP 사용). 배속 시연용 `DEMO_TIME_SCALE` 추가.
 - **2026-09-18 (Claude, 2차)**: 후순위 과제 구현(Web Push, QR 체크인, 관리자 PIN·자원 등록, 영어 토글, 메뉴 크롤러, 휴대폰 센서 화면, 모델 비교 스크립트, Docker 파일). Coinbase 가이드 + Jalnan2 로 웹앱 재스타일, Figma v2 5화면. 문서: sensor-guide, demo-video-guide, design.md. 영상 스크립트 종료 키를 q→ESC (한글 ㅂ 입력에 꺼지던 문제). 시설안내 HTML 의 JSON 에서 푸드코트 매장 9곳·구내식당 운영시간 확보. 미해결: Figma 의 Jalnan2 적용(설치·재시작 필요).
+- **2026-09-19 (Claude, 3차)**: 구조 개편 — 분야 허브 → 세부 목록 → 상세. 세탁실 3개 관(인재관 3+3·창의관 6+6·행복관 3+3), 오픈스페이스 5곳, 셔틀 5방향 + 실제 시간표(PDF 1페이지 전사, `jobs/data/shuttle_timetable.json`) 로 남은 시간·탑승 예측. 닉네임 계정(로그인/내 정보). 데모 모드(`DEMO_MODE`, source=demo). YOLO 확장(다중 구역·체류시간·실내 계수·`run_all.py`). 배포 파일(fly.toml, render.yaml, vercel.json, CI, docs/deploy.md). 미전사: 셔틀 PDF 2페이지(방학 시간표)·3페이지(노선도). 실제 배포는 팀 계정 필요.

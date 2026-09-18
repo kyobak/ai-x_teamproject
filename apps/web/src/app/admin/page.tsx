@@ -76,7 +76,7 @@ export default function AdminPage() {
           <div className="space-y-2">
             {laundry.map((r) => (
               <div key={r.id} className="card flex items-center justify-between gap-2 px-4 py-3 text-sm">
-                <span className="min-w-0 truncate">{r.name} <span className="text-xs text-muted-soft">({r.state})</span></span>
+                <span className="min-w-0 truncate">{r.zone} {r.name} <span className="text-xs text-muted-soft">({r.state})</span></span>
                 <div className="flex gap-1">
                   {(["available", "in_use", "unknown"] as const).map((s) => (
                     <Btn key={s} on={r.state === s} onClick={() => send({ resource_id: r.id, state: s })}>{s === "available" ? "비움" : s === "in_use" ? "사용중" : "불명"}</Btn>
@@ -153,7 +153,7 @@ export default function AdminPage() {
             <button onClick={() => api.pushTest(deviceId).then(() => setMsg("테스트 푸시 전송 (구독이 있으면 도착)"))} className="pill bg-surface-strong px-3 py-1.5 font-semibold text-ink">푸시 테스트</button>
           </div>
           <pre className="mt-3 overflow-x-auto rounded-2xl bg-surface-soft p-3 text-[11px]">{`.venv/bin/python vision/run_video.py --loop --show
-.venv/bin/python sensors/simulate_washer.py --resource laundry-w1 --speed 20`}</pre>
+.venv/bin/python sensors/simulate_washer.py --resource laundry-changui-w1 --speed 20`}</pre>
         </section>
       </main>
     </>

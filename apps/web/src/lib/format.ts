@@ -16,6 +16,8 @@ export const SOURCE_LABEL: Record<string, string> = {
   prediction: "시간대 예측",
   admin: "관리자 입력",
   qr: "QR 체크인",
+  sensor: "진동 센서 실측",
+  demo: "시연용 시뮬레이션",
   none: "데이터 없음",
 };
 

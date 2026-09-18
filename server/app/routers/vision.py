@@ -32,9 +32,9 @@ async def post_metrics(body: VisionMetricIn, x_device_key: str | None = Header(d
         if not conn.execute("SELECT 1 FROM resources WHERE id=?", (body.resource_id,)).fetchone():
             raise HTTPException(404, "resource not found")
         conn.execute(
-            "INSERT INTO vision_metrics(resource_id, people_count, throughput_per_min, est_wait_min, confidence, device_id, created_at) "
-            "VALUES (?,?,?,?,?,?,?)",
-            (body.resource_id, body.people_count, body.throughput_per_min, est, body.confidence, body.device_id, iso(now)),
+            "INSERT INTO vision_metrics(resource_id, people_count, throughput_per_min, est_wait_min, confidence, device_id, created_at, avg_dwell_sec, zone_type) "
+            "VALUES (?,?,?,?,?,?,?,?,?)",
+            (body.resource_id, body.people_count, body.throughput_per_min, est, body.confidence, body.device_id, iso(now), body.avg_dwell_sec, body.zone_type),
         )
         # 오래된 수치는 지워 DB 가 무한히 커지지 않게 (최근 2000건만 유지)
         conn.execute(

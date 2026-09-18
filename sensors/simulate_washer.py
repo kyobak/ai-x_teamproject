@@ -36,7 +36,7 @@ PROFILE = [  # (단계 이름, 분, 진동 세기 평균 g)
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--resource", default="laundry-w1")
+    ap.add_argument("--resource", default="laundry-changui-w1")
     ap.add_argument("--api", default="http://localhost:8000")
     ap.add_argument("--device-key", default="dev-edge-key")
     ap.add_argument("--speed", type=float, default=20.0, help="시간 배속")

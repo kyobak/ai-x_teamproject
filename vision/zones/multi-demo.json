@@ -1,0 +1,94 @@
+{
+  "_comment": "샘플 영상(people-walking.mp4, 1920x1080) 하나로 세 자원을 동시에 분석하는 데모. 왼쪽=학식 줄, 오른쪽=셔틀 줄, 위쪽=오픈스페이스 실내.",
+  "zones": [
+    {
+      "resource_id": "cafeteria-1",
+      "type": "queue",
+      "polygon": [
+        [
+          150,
+          420
+        ],
+        [
+          950,
+          420
+        ],
+        [
+          950,
+          1060
+        ],
+        [
+          100,
+          1060
+        ]
+      ],
+      "pass_line": {
+        "start": [
+          560,
+          400
+        ],
+        "end": [
+          560,
+          1060
+        ]
+      },
+      "line_count_direction": "both"
+    },
+    {
+      "resource_id": "shuttle-shuttlecock-hanyang",
+      "type": "queue",
+      "polygon": [
+        [
+          980,
+          420
+        ],
+        [
+          1850,
+          420
+        ],
+        [
+          1900,
+          1060
+        ],
+        [
+          980,
+          1060
+        ]
+      ],
+      "pass_line": {
+        "start": [
+          1400,
+          400
+        ],
+        "end": [
+          1400,
+          1060
+        ]
+      },
+      "line_count_direction": "both"
+    },
+    {
+      "resource_id": "space-yunghap",
+      "type": "room",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          1920,
+          0
+        ],
+        [
+          1920,
+          400
+        ],
+        [
+          0,
+          400
+        ]
+      ],
+      "pass_line": null
+    }
+  ]
+}

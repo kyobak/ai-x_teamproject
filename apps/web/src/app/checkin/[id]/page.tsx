@@ -23,7 +23,7 @@ export default function CheckinPage() {
   };
   return (
     <>
-      <Header title={r?.name ?? "체크인"} back="/" />
+      <Header title={r?.name ?? "체크인"} back="/space" />
       <main className="space-y-4 p-4">
         <section className="card p-6 text-center">
           <p className="text-xs text-muted">{r?.zone}</p>

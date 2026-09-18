@@ -13,7 +13,7 @@ import { useRealtime } from "@/lib/realtime";
 export default function SensorPage() {
   const { list } = useRealtime();
   const machines = list.filter((r) => r.kind === "laundry");
-  const [resource, setResource] = useState("laundry-w1");
+  const [resource, setResource] = useState("laundry-changui-w1");
   const [key, setKey] = useState("dev-edge-key");
   const [running, setRunning] = useState(false);
   const [last, setLast] = useState<{ mag: number; ok: boolean } | null>(null);

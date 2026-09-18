@@ -1,0 +1,28 @@
+# Fly.io 배포 설정 (백엔드). 사용법: docs/deploy.md
+#   fly launch --no-deploy  (이 파일을 인식)  →  fly volumes create data --size 1  →  fly secrets set ...  →  fly deploy
+app = "erica-wait-api"          # 팀이 원하는 이름으로 변경 (전 세계 유일해야 함)
+primary_region = "nrt"          # 도쿄. 한국에서 가장 가까운 리전
+
+[build]
+  dockerfile = "server/Dockerfile"
+
+[env]
+  DEMO_MODE = "1"               # 시연 기간엔 1, 실사용 땐 0
+  PORT = "8000"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = false    # SSE 연결과 주기 작업이 있으므로 항상 켜 둠
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "5s"
+  method = "GET"
+  path = "/api/health"
+
+[mounts]
+  source = "data"               # SQLite 파일·VAPID 키가 재배포 후에도 남도록 볼륨에 둠
+  destination = "/app/server/data"
