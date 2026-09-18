@@ -1,5 +1,7 @@
 # ERICA 캠퍼스 대기 통합 서비스 — 프로토타입
 
+> **배포 주소**: 웹앱 https://erica-wait.vercel.app · API https://erica-wait-api.onrender.com (무료 플랜, 첫 접속 30~60초). 자세한 것은 [docs/deploy.md](docs/deploy.md)
+
 > AI+X 공학융합프로젝트 2026 가을 · 팀 굳건 (team09)
 > 학식·세탁실·셔틀처럼 줄이 생기는 곳을 한 앱에서 보고, **영상으로 줄 인원과 처리율을 세어 "지금 서면 몇 분"** 을 알려주는 프로토타입입니다.
 

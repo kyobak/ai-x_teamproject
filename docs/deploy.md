@@ -1,5 +1,16 @@
 # 배포 가이드
 
+## 현재 배포 주소 (2026-09-19)
+| 구성 | 주소 | 비고 |
+|---|---|---|
+| 웹앱 (Vercel) | **https://erica-wait.vercel.app** | 휴대폰·PC 모두 이 주소. 홈 화면에 추가 가능 |
+| 백엔드 (Render 무료) | https://erica-wait-api.onrender.com | `/api/health`, `/docs`. 15분 무요청 시 잠듦 → 첫 요청 30~60초 |
+| 관리자 PIN · 기기 키 | Render 대시보드 → erica-wait-api → Environment | `ADMIN_PIN`, `EDGE_API_KEY` 자동 생성값 |
+
+- 백엔드는 `main` 푸시마다 자동 재배포됩니다.
+- 웹앱은 CLI 로 올렸으므로 코드 수정 후 `cd apps/web && npx vercel deploy --prod --yes` 를 실행해야 반영됩니다. (Vercel 대시보드 → Settings → Git 에서 저장소를 연결하면 이후 자동 배포, Root Directory 는 `apps/web`)
+- 노트북 영상을 배포 서버로 보내기: `.venv/bin/python vision/run_video.py --api https://erica-wait-api.onrender.com --device-key <EDGE_API_KEY> --loop --show`
+
 구성: **웹앱 → Vercel**, **백엔드 → Render 무료 플랜(시연용) 또는 Fly.io(볼륨 있음, 카드 필요)**, 영상·센서는 카메라/센서가 있는 기기(노트북·Pi)에서 실행해 배포된 백엔드로 숫자만 보냅니다.
 HTTPS 가 되면 휴대폰에서 Web Push 와 동작 센서(iPhone)가 동작합니다.
 
