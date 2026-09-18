@@ -27,6 +27,8 @@ python3 -m venv .venv
 cd apps/web && npm install && cd ../..
 
 # ※ 아래 명령은 전부 "저장소 루트(ai-x_teamproject/)" 에서 실행합니다. 터미널을 새로 열 때마다 루트로 돌아오세요.
+# ※ 시연에는 프로세스 4개가 "동시에" 떠 있어야 합니다: 백엔드, 웹앱, 영상 파이프라인, 세탁 시뮬레이터.
+#    웹앱만 켜면 화면에 "서버에 연결할 수 없습니다" 또는 "데이터 없음" 만 보입니다.
 
 # 1) 백엔드 (터미널 1)
 .venv/bin/python -m uvicorn app.main:app --app-dir server --reload --host 0.0.0.0 --port 8000
