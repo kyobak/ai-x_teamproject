@@ -1,6 +1,6 @@
 # Fly.io 배포 설정 (백엔드). 사용법: docs/deploy.md
 #   fly launch --no-deploy  (이 파일을 인식)  →  fly volumes create data --size 1  →  fly secrets set ...  →  fly deploy
-app = "erica-wait-api"          # 팀이 원하는 이름으로 변경 (전 세계 유일해야 함)
+app = "erica-wait-api-team09"          # 팀이 원하는 이름으로 변경 (전 세계 유일해야 함)
 primary_region = "nrt"          # 도쿄. 한국에서 가장 가까운 리전
 
 [build]

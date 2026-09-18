@@ -1,23 +1,28 @@
-# Render.com 배포 설정 (Fly 대안). 대시보드에서 "Blueprint" 로 이 파일을 가리키면 됩니다.
+# Render.com 배포 설정 — 시연용 무료 플랜.
+# 대시보드 → New → Blueprint → 이 저장소 선택 → Apply 하면 아래대로 서비스가 만들어집니다 (docs/deploy.md).
+# 무료 플랜 제약: 15분 동안 요청이 없으면 잠들고 첫 요청에 30~60초 걸림, 디스크 없음(재배포·재시작 시 SQLite 초기화 → 시드가 다시 채움).
 services:
   - type: web
     name: erica-wait-api
     runtime: docker
     dockerfilePath: ./server/Dockerfile
-    plan: starter
+    dockerContext: .
+    plan: free
+    region: singapore          # 한국에서 가장 가까운 무료 리전
     healthCheckPath: /api/health
-    disk:
-      name: data
-      mountPath: /app/server/data
-      sizeGB: 1
+    autoDeploy: true           # main 푸시마다 자동 재배포
     envVars:
       - key: DEMO_MODE
         value: "1"
+      - key: DEMO_TIME_SCALE
+        value: "20"            # 시연용 배속 (세탁 상태 전이가 2~3분 안에 보이게). 실사용 땐 1
       - key: EDGE_API_KEY
-        generateValue: true
+        generateValue: true    # 대시보드 Environment 탭에서 값 확인 → 영상·센서 --device-key 에 사용
       - key: ADMIN_PIN
-        sync: false
+        generateValue: true    # 대시보드에서 확인 → /admin 입장
       - key: AUTH_SECRET
         generateValue: true
       - key: ALLOWED_ORIGINS
-        sync: false   # 예: https://erica-wait.vercel.app
+        value: "*"             # 시연용 전체 허용. 웹앱 도메인이 정해지면 https://xxx.vercel.app 로 좁히기
+      - key: VAPID_CLAIMS_SUB
+        value: "mailto:jaeone1115@hanyang.ac.kr"

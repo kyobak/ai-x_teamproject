@@ -1,6 +1,6 @@
 # 배포 가이드
 
-구성: **웹앱 → Vercel**, **백엔드 → Fly.io(또는 Render)**, 영상·센서는 카메라/센서가 있는 기기(노트북·Pi)에서 실행해 배포된 백엔드로 숫자만 보냅니다.
+구성: **웹앱 → Vercel**, **백엔드 → Render 무료 플랜(시연용) 또는 Fly.io(볼륨 있음, 카드 필요)**, 영상·센서는 카메라/센서가 있는 기기(노트북·Pi)에서 실행해 배포된 백엔드로 숫자만 보냅니다.
 HTTPS 가 되면 휴대폰에서 Web Push 와 동작 센서(iPhone)가 동작합니다.
 
 ```
@@ -12,7 +12,14 @@ HTTPS 가 되면 휴대폰에서 Web Push 와 동작 센서(iPhone)가 동작합
 - 계정: Vercel(GitHub 로그인), Fly.io(신용카드 등록 필요하지만 소규모 무료), 또는 Render
 - CLI: `brew install flyctl` / `npm i -g vercel`
 
-## 1. 백엔드 (Fly.io)
+## 1-A. 백엔드 (Render 무료 플랜, 카드 불필요 — 시연용)
+1. https://dashboard.render.com → **New → Blueprint** → GitHub 저장소 `kyobak/ai-x_teamproject` 연결 → `render.yaml` 감지 → **Apply**
+2. 서비스 `erica-wait-api` 의 **Environment** 탭에서 자동 생성된 `EDGE_API_KEY`, `ADMIN_PIN` 값을 확인해 팀에 공유
+3. 주소는 `https://erica-wait-api.onrender.com` (이름이 이미 쓰이면 뒤에 접미사가 붙음). `…/api/health` 로 확인
+- 제약: 15분 무요청 시 잠듦(첫 요청 30~60초). 시연 5분 전에 한 번 열어 깨우세요. 디스크가 없어 재배포 때 DB 가 초기화됩니다(시드가 다시 채움, 계정·대기열은 사라짐).
+- `main` 에 푸시하면 자동 재배포.
+
+## 1-B. 백엔드 (Fly.io — 볼륨으로 DB 유지, 결제수단 등록 필요)
 ```bash
 fly auth login
 fly launch --no-deploy --copy-config --name erica-wait-api --region nrt   # fly.toml 사용
