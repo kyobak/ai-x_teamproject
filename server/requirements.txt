@@ -1,0 +1,6 @@
+# 백엔드 의존성. 루트 .venv 에 설치합니다:  .venv/bin/pip install -r server/requirements.txt
+fastapi
+uvicorn[standard]
+pydantic
+httpx      # 테스트에서 TestClient 가 사용
+pytest

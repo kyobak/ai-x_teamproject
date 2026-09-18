@@ -1,0 +1,6 @@
+{
+  "_comment": "vision/samples/people-walking.mp4 (1920x1080) 기준 데모 구역. 실제 현장은 zone_tool.py 로 다시 그립니다.",
+  "queue_polygon": [[300, 400], [1600, 400], [1750, 1050], [150, 1050]],
+  "pass_line": {"start": [960, 380], "end": [960, 1060]},
+  "line_count_direction": "both"
+}

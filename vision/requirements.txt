@@ -1,0 +1,7 @@
+# 비전 파이프라인 의존성. 루트 .venv 에 설치:  .venv/bin/pip install -r vision/requirements.txt
+# Ultralytics YOLO 는 AGPL-3.0 입니다. README 라이선스 표에 명시되어 있습니다.
+ultralytics>=8.3
+supervision>=0.26,<0.31
+opencv-python
+numpy
+requests

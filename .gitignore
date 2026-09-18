@@ -1,0 +1,35 @@
+# ---- 영상·이미지: 실수로라도 저장소에 올라가지 않게 (계획서 요구) ----
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.jpg
+*.jpeg
+!apps/web/public/icons/*.png
+vision/samples/
+
+# ---- 모델 가중치 (자동 다운로드됨) ----
+*.pt
+*.onnx
+
+# ---- Python ----
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+server/data/
+server/.env
+
+# ---- Node / Next.js ----
+apps/web/node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/.env.local
+apps/web/*.tsbuildinfo
+apps/web/next-env.d.ts
+
+# ---- 에디터/OS ----
+.DS_Store
+.vscode/
+.idea/
+.claude/

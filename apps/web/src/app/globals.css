@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+/* iOS 홈 화면 앱에서 하단 탭이 홈 인디케이터에 가리지 않도록 안전 영역만큼 여백 */
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+:root { color-scheme: light; }
+body { font-family: "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif; word-break: keep-all; }
