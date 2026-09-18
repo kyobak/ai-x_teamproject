@@ -3,7 +3,7 @@
  * 로그인 상태 (닉네임 + 토큰). localStorage 에 두고 useSyncExternalStore 로 읽습니다.
  * 학번·실명은 서버가 받지 않으므로 여기에도 없습니다. 토큰이 있으면 /api/auth/me 를 Bearer 로 호출합니다.
  */
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import type { AuthUser } from "./api";
 
 const KEY = "erica-wait-auth";
@@ -16,7 +16,9 @@ export function setAuth(u: AuthUser | null) {
   try { if (u) localStorage.setItem(KEY, JSON.stringify(u)); else localStorage.removeItem(KEY); } catch { /* ignore */ }
   listeners.forEach((f) => f());
 }
+// 파싱 결과를 raw 문자열 기준으로 useMemo 로 고정합니다. 매 렌더마다 새 객체를 만들면 이 값을 의존성으로 쓰는
+// useEffect 가 렌더마다 다시 실행되어 "내 정보" 폼이 입력 직후 서버 값으로 되돌아가는 버그가 납니다(실제로 겪음).
 export function useAuth(): AuthUser | null {
   const raw = useSyncExternalStore(subscribe, read, () => null);
-  try { return raw ? (JSON.parse(raw) as AuthUser) : null; } catch { return null; }
+  return useMemo(() => { try { return raw ? (JSON.parse(raw) as AuthUser) : null; } catch { return null; } }, [raw]);
 }

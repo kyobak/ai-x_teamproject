@@ -90,7 +90,9 @@ export const api = {
   resource: (id: string) => fetch(`${apiBase()}/api/resources/${id}`).then((r) => json<Resource>(r)),
   history: (id: string) => fetch(`${apiBase()}/api/resources/${id}/history?limit=60`).then((r) => json<Record<string, number | string | null>[]>(r)),
   myTickets: (deviceId: string) => fetch(`${apiBase()}/api/queue/me?device_id=${encodeURIComponent(deviceId)}`).then((r) => json<MyTicket[]>(r)),
-  joinQueue: (id: string, deviceId: string) => post(`/api/queue/${id}/join`, { device_id: deviceId }).then((r) => json<{ position: number }>(r)),
+  // 줄 서기는 로그인 필요: Authorization 헤더로 토큰을 보내고, 서버가 검사합니다.
+  joinQueue: (id: string, deviceId: string, token: string) =>
+    fetch(`${apiBase()}/api/queue/${id}/join`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ device_id: deviceId }) }).then((r) => json<{ position: number }>(r)),
   leaveQueue: (id: string, deviceId: string) => post(`/api/queue/${id}/leave`, { device_id: deviceId }).then((r) => json<unknown>(r)),
   startUsing: (id: string, deviceId: string) => post(`/api/queue/${id}/start`, { device_id: deviceId }).then((r) => json<unknown>(r)),
   report: (id: string, level: number, deviceId: string) => post(`/api/reports`, { resource_id: id, level, device_id: deviceId }).then((r) => json<unknown>(r)),

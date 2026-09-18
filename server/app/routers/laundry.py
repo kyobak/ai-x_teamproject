@@ -23,6 +23,16 @@ from app.events import bus
 router = APIRouter(tags=["laundry"])
 
 
+def _require_login(conn, authorization: str | None):
+    """Authorization: Bearer <token> 이 users.token 과 일치해야 합니다 (routers/auth.py 에서 발급)."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "줄 서기는 로그인 후 이용할 수 있습니다")
+    row = conn.execute("SELECT id FROM users WHERE token=?", (authorization[7:],)).fetchone()
+    if not row:
+        raise HTTPException(401, "세션이 만료되었습니다. 다시 로그인하세요")
+    return row
+
+
 @router.post("/api/sensors/vibration")
 async def post_vibration(body: VibrationSampleIn, x_device_key: str | None = Header(default=None)):
     check_device_key(x_device_key)
@@ -88,8 +98,10 @@ async def get_queue(resource_id: str):
 
 
 @router.post("/api/queue/{resource_id}/join")
-async def join_queue(resource_id: str, body: QueueJoinIn):
+async def join_queue(resource_id: str, body: QueueJoinIn, authorization: str | None = Header(default=None)):
+    """줄 서기는 로그인한 사용자만. (익명 기기만으로는 장난 등록을 막기 어렵고, 호출 알림을 받을 사람이 특정돼야 하므로)"""
     with get_conn() as conn:
+        _require_login(conn, authorization)
         row = conn.execute("SELECT kind FROM resources WHERE id=?", (resource_id,)).fetchone()
         if not row or row["kind"] != "laundry":
             raise HTTPException(404, "laundry resource not found")

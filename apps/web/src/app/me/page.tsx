@@ -33,11 +33,13 @@ export default function MePage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
+  const token = user?.token;
   useEffect(() => {
-    if (user === null) { router.replace("/login"); return; }
-    api.me(user.token).then((u) => { setPrefs({ dorm: "none", notify_queue: true, notify_shuttle: false, lang: "ko", ...u.prefs }); setReady(true); })
+    if (!token) { router.replace("/login"); return; }
+    // 토큰이 바뀔 때(로그인/로그아웃)만 서버 값을 불러옵니다. 폼 입력 중에는 다시 불러오지 않음.
+    api.me(token).then((u) => { setPrefs({ dorm: "none", notify_queue: true, notify_shuttle: false, lang: "ko", ...u.prefs }); setReady(true); })
       .catch(() => { setAuth(null); router.replace("/login"); });
-  }, [user, router]);
+  }, [token, router]);
 
   if (!user) return null;
   const save = async () => {

@@ -33,3 +33,10 @@ def client():
     init_db()
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture()
+def auth(client):
+    """줄 서기 테스트용 로그인 헤더. 닉네임 계정을 만들고 Bearer 토큰을 돌려줍니다."""
+    tok = client.post("/api/auth/register", json={"nickname": "테스터", "password": "1234"}).json()["token"]
+    return {"Authorization": f"Bearer {tok}"}

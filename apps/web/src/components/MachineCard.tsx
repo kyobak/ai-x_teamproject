@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { api, type MyTicket, type Resource } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { agoText, timeText } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
@@ -11,6 +13,7 @@ import { useT } from "@/lib/i18n";
  */
 export function MachineCard({ r, ticket, deviceId, onChanged }: { r: Resource; ticket?: MyTicket; deviceId: string; onChanged: () => void }) {
   const t = useT();
+  const user = useAuth();   // 줄 서기는 로그인한 사용자만 (호출 알림을 받을 사람을 특정하기 위해)
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const run = async (fn: () => Promise<unknown>) => {
@@ -38,11 +41,16 @@ export function MachineCard({ r, ticket, deviceId, onChanged }: { r: Resource; t
       <p className="text-xs text-muted-soft">센서 수신 {r.last_sample_at ? agoText(r.last_sample_at) : "없음"} · {t("laundry.waiting")} {r.queue_length ?? 0}{t("people.unit")}</p>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        {!ticket && (
-          <button disabled={busy} onClick={() => run(() => api.joinQueue(r.id, deviceId))}
+        {!ticket && user && (
+          <button disabled={busy} onClick={() => run(() => api.joinQueue(r.id, deviceId, user.token))}
             className="pill h-11 bg-primary px-5 text-sm font-semibold text-white active:bg-primary-active disabled:bg-primary-disabled">
             {t("laundry.join")}
           </button>
+        )}
+        {!ticket && !user && (
+          <Link href="/login" className="pill inline-flex h-11 items-center bg-surface-strong px-5 text-sm font-semibold text-primary">
+            로그인 후 줄 서기
+          </Link>
         )}
         {ticket?.status === "waiting" && (
           <>

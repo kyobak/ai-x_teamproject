@@ -22,21 +22,21 @@ def test_vision_metrics_require_device_key(client):
     assert d["people_count"] == 3 and d["source"] == "vision"
 
 
-def test_req_lau_04_first_in_queue_is_called_when_machine_frees(client):
+def test_req_lau_04_first_in_queue_is_called_when_machine_frees(client, auth):
     # 기기를 사용 중으로 만든 뒤 두 명이 줄을 선다
     client.post("/api/admin/status", json={"resource_id": "laundry-changui-w1", "state": "in_use"}, headers=PIN)
-    assert client.post("/api/queue/laundry-changui-w1/join", json={"device_id": "A"}).json()["position"] == 1
-    assert client.post("/api/queue/laundry-changui-w1/join", json={"device_id": "B"}).json()["position"] == 2
-    assert client.post("/api/queue/laundry-changui-w1/join", json={"device_id": "A"}).status_code == 409   # 중복 등록 금지
+    assert client.post("/api/queue/laundry-changui-w1/join", json={"device_id": "A"}, headers=auth).json()["position"] == 1
+    assert client.post("/api/queue/laundry-changui-w1/join", json={"device_id": "B"}, headers=auth).json()["position"] == 2
+    assert client.post("/api/queue/laundry-changui-w1/join", json={"device_id": "A"}, headers=auth).status_code == 409   # 중복 등록 금지
     # 기기가 비면 A 가 호출된다
     client.post("/api/admin/status", json={"resource_id": "laundry-changui-w1", "state": "available"}, headers=PIN)
     q = client.get("/api/queue/laundry-changui-w1").json()
     assert q[0] == {"position": 1, "status": "called"} and q[1]["status"] == "waiting"
 
 
-def test_req_lau_05_called_ticket_expires_after_5min_and_next_is_called(client):
-    client.post("/api/queue/laundry-changui-w2/join", json={"device_id": "A"})   # 기기가 비어 있으니 즉시 호출
-    client.post("/api/queue/laundry-changui-w2/join", json={"device_id": "B"})
+def test_req_lau_05_called_ticket_expires_after_5min_and_next_is_called(client, auth):
+    client.post("/api/queue/laundry-changui-w2/join", json={"device_id": "A"}, headers=auth)   # 기기가 비어 있으니 즉시 호출
+    client.post("/api/queue/laundry-changui-w2/join", json={"device_id": "B"}, headers=auth)
     # 호출 시각을 6분 전으로 되돌려 만료 상황을 만든다
     with get_conn() as conn:
         conn.execute("UPDATE queue_tickets SET called_at=? WHERE device_id='A'",
@@ -48,9 +48,9 @@ def test_req_lau_05_called_ticket_expires_after_5min_and_next_is_called(client):
     assert q == [{"position": 2, "status": "called"}]
 
 
-def test_req_lau_07_unknown_machine_does_not_call(client):
+def test_req_lau_07_unknown_machine_does_not_call(client, auth):
     client.post("/api/admin/status", json={"resource_id": "laundry-changui-w3", "state": "unknown"}, headers=PIN)
-    client.post("/api/queue/laundry-changui-w3/join", json={"device_id": "A"})
+    client.post("/api/queue/laundry-changui-w3/join", json={"device_id": "A"}, headers=auth)
     assert client.get("/api/queue/laundry-changui-w3").json() == [{"position": 1, "status": "waiting"}]
 
 
@@ -71,9 +71,9 @@ def test_req_sys_01_schema_has_no_personal_fields(client):
         assert forbidden not in cols
 
 
-def test_queue_me_route_is_not_shadowed_by_resource_route(client):
+def test_queue_me_route_is_not_shadowed_by_resource_route(client, auth):
     """/api/queue/me 가 /api/queue/{resource_id} 에 가려지면 내 티켓이 항상 빈 목록이 됩니다 (회귀 테스트)."""
-    client.post("/api/queue/laundry-changui-w2/join", json={"device_id": "phone-9"})
+    client.post("/api/queue/laundry-changui-w2/join", json={"device_id": "phone-9"}, headers=auth)
     mine = client.get("/api/queue/me", params={"device_id": "phone-9"}).json()
     assert len(mine) == 1 and mine[0]["resource_id"] == "laundry-changui-w2" and mine[0]["status"] == "called"
 
@@ -144,3 +144,8 @@ def test_laundry_seed_counts(client):
 def test_shuttle_has_timetable_and_boarding(client):
     d = client.get("/api/resources/shuttle-shuttlecock-hanyang").json()
     assert "upcoming" in d and "board_note" in d and d["direction"] == "shuttlecock_to_hanyang"
+
+
+def test_queue_join_requires_login(client, auth):
+    assert client.post("/api/queue/laundry-changui-w2/join", json={"device_id": "X"}).status_code == 401
+    assert client.post("/api/queue/laundry-changui-w2/join", json={"device_id": "X"}, headers=auth).status_code == 200

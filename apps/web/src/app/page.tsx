@@ -16,8 +16,13 @@ import { useRealtime } from "@/lib/realtime";
 export default function Home() {
   const { list, loading, error } = useRealtime();
   const t = useT();
-  const cafes = list.filter((r) => r.kind === "cafeteria" && r.est_wait_min != null).sort((a, b) => (a.est_wait_min ?? 0) - (b.est_wait_min ?? 0));
+  // 학식 정렬: 예상 대기(분)가 있으면 그것으로, 없으면 혼잡 단계로 (여유 < 보통 < 혼잡). 제보만 있는 식당도 히어로에 오를 수 있게.
+  const RANK: Record<string, number> = { relaxed: 0, normal: 1, crowded: 2, unknown: 3 };
+  const score = (r: (typeof list)[number]) => (r.est_wait_min != null ? r.est_wait_min : 100 + RANK[r.level ?? "unknown"] * 100);
+  const allCafes = list.filter((r) => r.kind === "cafeteria" && (r.est_wait_min != null || (r.level && r.level !== "unknown")));
+  const cafes = [...allCafes].sort((a, b) => score(a) - score(b));
   const best = cafes[0];
+  const allCrowded = allCafes.length > 0 && allCafes.every((r) => r.level === "crowded");
   const washers = list.filter((r) => r.kind === "laundry");
   const freeW = washers.filter((r) => r.machine_type === "washer" && r.state === "available").length;
   const freeD = washers.filter((r) => r.machine_type === "dryer" && r.state === "available").length;
@@ -28,12 +33,23 @@ export default function Home() {
       <Header title={t("home.title")} dark />
       <section className="bg-surface-dark px-4 pb-8 pt-4 text-white">
         <p className="text-xs text-on-dark-soft">{t("home.hero.kicker")}</p>
-        {best ? (
+        {allCrowded ? (
+          <Link href="/cafeteria" className="mt-3 block rounded-[24px] bg-surface-dark-elevated p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm text-on-dark-soft">지금은</p>
+                <p className="mt-1 font-display text-4xl">모든 식당 혼잡</p>
+              </div>
+              <LevelBadge level="crowded" />
+            </div>
+            <p className="mt-3 text-sm text-on-dark-soft">구내식당·푸드코트 {allCafes.length}곳 모두 혼잡입니다. 시간대별 예측을 보고 방문 시간을 미루는 것을 권합니다.</p>
+          </Link>
+        ) : best ? (
           <Link href={`/cafeteria/${best.id}`} className="mt-3 block rounded-[24px] bg-surface-dark-elevated p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm text-on-dark-soft">{best.name} · {t("home.hero.wait")}</p>
-                <p className="mt-1 font-display text-5xl tabular-nums">{waitText(best.est_wait_min)}</p>
+                <p className="mt-1 font-display text-5xl tabular-nums">{best.est_wait_min != null ? waitText(best.est_wait_min) : t(`level.${best.level ?? "unknown"}`)}</p>
               </div>
               <LevelBadge level={best.level} />
             </div>
@@ -42,7 +58,7 @@ export default function Home() {
           </Link>
         ) : (
           <div className="mt-3 rounded-[24px] bg-surface-dark-elevated p-6">
-            <p className="font-display text-2xl">{loading ? "불러오는 중…" : "데이터 준비 중"}</p>
+            <p className="font-display text-2xl">{loading ? "불러오는 중…" : "학식 정보 없음"}</p>
           </div>
         )}
       </section>
@@ -57,7 +73,7 @@ export default function Home() {
         <HubCard href="/shuttle" icon="▷" title={t("hub.shuttle")} sub={t("hub.shuttle.sub")}
           summary={main ? `셔틀콕→한대앞역 ${main.next_in_min == null ? "운행 종료" : `${main.next_in_min}분 후 출발`} · 줄 ${main.people_count ?? "-"}명` : undefined} />
         <HubCard href="/cafeteria" icon="◒" title={t("hub.cafeteria")} sub={t("hub.cafeteria.sub")}
-          summary={best ? `가장 빠른 곳: ${best.name} ${waitText(best.est_wait_min)}` : undefined} />
+          summary={allCrowded ? "모든 식당 혼잡" : best ? `가장 빠른 곳: ${best.name} ${best.est_wait_min != null ? waitText(best.est_wait_min) : t(`level.${best.level ?? "unknown"}`)}` : undefined} />
         {list.filter((r) => r.kind === "parking").map((r) => (
           <Link key={r.id} href="/admin" className="card flex items-center justify-between p-4 text-sm">
             <span className="text-body">{r.name} <span className="pill ml-1 bg-surface-strong px-2 text-[10px] text-muted">{t("mock")}</span></span>
