@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { Header } from "@/components/Header";
 import { ResourceCard } from "@/components/ResourceCard";
 import { useT } from "@/lib/i18n";
@@ -15,6 +16,10 @@ export default function SpaceHub() {
       <main className="space-y-3 p-4">
         <p className="text-xs text-muted">여유 있는 곳부터 보여줍니다. 입구 QR 체크인 또는 카메라 인원 계수로 재실 인원을 셉니다.</p>
         {spaces.map((r) => <ResourceCard key={r.id} r={r} />)}
+        <Link href="/camera" className="card flex items-center justify-between p-4 text-sm">
+          <span><span className="font-display text-ink">휴대폰 카메라로 재실 인원 재기</span><span className="block text-xs text-muted">휴대폰 안에서 사람을 세어 숫자만 전송</span></span>
+          <span className="text-xl text-muted-soft">›</span>
+        </Link>
       </main>
     </>
   );

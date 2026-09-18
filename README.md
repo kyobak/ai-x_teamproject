@@ -86,6 +86,13 @@ cd apps/web && npm run lint && npm run build
 /admin /sensor    관리(PIN) · 휴대폰 센서
 ```
 
+### 카메라 신호를 보내는 세 가지 방법
+| 방법 | 언제 | 명령/화면 |
+|---|---|---|
+| 노트북 + 영상 파일/웹캠 (YOLO, 정확) | 발표·본 측정 | `.venv/bin/python vision/run_video.py --api https://erica-wait-api.onrender.com --device-key <EDGE_API_KEY> --loop --show` |
+| 휴대폰 카메라 (브라우저 안 COCO-SSD, 간이) | 노트북 없이 현장에서 | 웹앱 `/camera` — 휴대폰 안에서 사람을 세고 인원 숫자만 전송. 처리율은 시간대 상수로 대체 |
+| 관리자 수동 입력 · 사용자 제보 | 카메라가 없을 때 | `/admin`, 각 상세 화면의 제보 버튼 |
+
 ### 여러 영상·구역 동시 분석
 ```bash
 .venv/bin/python vision/run_all.py --show          # vision/manifest.json 의 영상마다 프로세스 하나

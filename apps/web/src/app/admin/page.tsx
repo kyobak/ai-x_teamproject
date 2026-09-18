@@ -150,6 +150,7 @@ export default function AdminPage() {
           <p className="font-semibold text-ink">도구</p>
           <div className="mt-2 flex flex-wrap gap-2">
             <Link href="/sensor" className="pill bg-surface-strong px-3 py-1.5 font-semibold text-ink">휴대폰을 진동 센서로</Link>
+            <Link href="/camera" className="pill bg-surface-strong px-3 py-1.5 font-semibold text-ink">휴대폰을 카메라로</Link>
             <button onClick={() => api.pushTest(deviceId).then(() => setMsg("테스트 푸시 전송 (구독이 있으면 도착)"))} className="pill bg-surface-strong px-3 py-1.5 font-semibold text-ink">푸시 테스트</button>
           </div>
           <pre className="mt-3 overflow-x-auto rounded-2xl bg-surface-soft p-3 text-[11px]">{`.venv/bin/python vision/run_video.py --loop --show
