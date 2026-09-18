@@ -26,7 +26,7 @@ const DORMS = [{ v: "none", l: "기숙사 아님" }, { v: "injae", l: "인재관
 
 export default function MePage() {
   const user = useAuth();
-  const ready = useAuthReady();
+  const authReady = useAuthReady();
   const router = useRouter();
   const t = useT();
   const { list, myTickets } = useRealtime();
@@ -36,12 +36,12 @@ export default function MePage() {
 
   const token = user?.token;
   useEffect(() => {
-    if (!ready) return;                       // 아직 localStorage 를 못 읽은 첫 렌더: 판단 보류
+    if (!authReady) return;                   // 아직 localStorage 를 못 읽은 첫 렌더: 판단 보류
     if (!token) { router.replace("/login"); return; }
     // 토큰이 바뀔 때(로그인/로그아웃)만 서버 값을 불러옵니다. 폼 입력 중에는 다시 불러오지 않음.
     api.me(token).then((u) => { setPrefs({ dorm: "none", notify_queue: true, notify_shuttle: false, lang: "ko", ...u.prefs }); setReady(true); })
       .catch(() => { setAuth(null); router.replace("/login"); });
-  }, [ready, token, router]);
+  }, [authReady, token, router]);
 
   if (!user) return null;
   const save = async () => {
