@@ -77,7 +77,7 @@ cd apps/web && npm run lint && npm run build
 ```bash
 .venv/bin/python jobs/crawl_menu.py      # 복지포털(life.hanyang.ac.kr) 공개 데이터 → jobs/data/campus_food.json + DB
 ```
-식단 페이지 본문은 로그인이 필요해서, 페이지가 불러오는 공개 데이터 파일(`/theme/assets/js/mock-data.js`)을 읽습니다. 식당은 학생식당·창의관식당·교직원식당·창업보육센터식당 4곳. **푸드코트 입점 매장 목록은 로그인 뒤 시설안내에서만 보여** `jobs/data/campus_food.json` 의 `foodcourt_vendors_todo` 에 채워 넣으면 화면에 나옵니다(`server/app/db.py` 의 `foodcourt-1` extra.vendors).
+두 가지를 읽습니다. (1) 식단: 페이지 본문은 로그인이 필요해서, 페이지가 불러오는 공개 데이터 파일(`/theme/assets/js/mock-data.js`)에서 식당 4곳의 조·중·석식을 가져옵니다. (2) 시설: 시설안내 페이지(`/theme/pages/facilities/index.php`) HTML 에 박힌 시설 48곳 JSON 에서 구내식당 4곳의 운영시간과 **학생복지관 2층 푸드코트 매장 9곳**(바비든든, Pan&Wok, 산쪼메, 33떡볶이, FRESH BURRITOS, NEW YORK BURGER, 스타벅스, BLUEPOT, Daily Beetle Juice), 창의관 1층 매장 3곳을 가져옵니다. 자원 시드는 `server/app/db.py` 의 `_food_resources()` 가 이 파일로 만듭니다.
 
 ### 우리 영상으로 시연하기
 촬영한 영상을 **`vision/samples/demo.mp4`** 에 두면 `run_video.py` 가 자동으로 그 파일을 씁니다. 촬영 요령과 구역 그리기는 [docs/demo-video-guide.md](docs/demo-video-guide.md).

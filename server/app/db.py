@@ -114,19 +114,7 @@ CREATE TABLE IF NOT EXISTS menus (
 # 시드 데이터: 데모에 필요한 자원 목록. 실제 학교 자원명은 조사 후 바꿉니다.
 # ---------------------------------------------------------------------------
 SEED_RESOURCES = [
-    # 슬라이스 A: 학식 (Must). 식당 이름·운영시간은 복지포털(life.hanyang.ac.kr) 공개 데이터 기준.
-    ("cafeteria-1", "cafeteria", "학생복지관", "학생식당", None, "vision",
-     {"hours": "조식 08:00~ · 중식 11:30~ · 석식 17:30~", "site_name": "학생식당"}),
-    ("cafeteria-2", "cafeteria", "창의인재원", "창의관식당", None, "report",
-     {"hours": "조식 08:00~ · 중식 11:30~ · 석식 17:30~", "site_name": "창의관식당"}),
-    ("cafeteria-3", "cafeteria", "교직원 전용", "교직원식당", None, "report", {"hours": "중식 11:30~", "site_name": "교직원식당"}),
-    ("cafeteria-4", "cafeteria", "창업보육센터", "창업보육센터식당", None, "report", {"hours": "중식 11:30~ · 석식 17:30~", "site_name": "창업보육센터식당"}),
-    # 푸드코트: 입점 매장 목록은 복지포털 시설안내(로그인 필요)에서 확인 후 vendors 에 채웁니다. 공개 정보는 분류별 개수뿐.
-    ("foodcourt-1", "cafeteria", "학생복지관", "푸드코트", None, "report",
-     {"hours": "10:00~19:00 (확인 필요)", "vendors": [
-         {"name": "일반음식점 9곳 (매장명 확인 필요)", "category": "식당"},
-         {"name": "카페/베이커리 11곳 (매장명 확인 필요)", "category": "카페"},
-         {"name": "편의점 5곳", "category": "편의점"}]}),
+    # 슬라이스 A: 학식 (Must). 식당·운영시간·푸드코트 매장은 아래 _food_resources() 가 복지포털 데이터(jobs/data/campus_food.json)에서 만듭니다.
     # Should: 셔틀 (같은 비전 모듈 재사용 + 시간표)
     ("shuttle-1", "shuttle", "셔틀콕", "셔틀콕 → 한대앞역", 45, "vision",
      {"timetable": ["08:00", "08:20", "08:40", "09:00", "09:20", "09:40", "10:00", "10:30", "11:00", "11:30",
@@ -141,6 +129,52 @@ SEED_RESOURCES = [
     ("space-1", "space", "공학관 3층", "오픈스페이스", 40, "qr", {}),
     ("parking-1", "parking", "정문", "정문 주차장", 120, "admin", {}),
 ]
+
+
+def _clean_hours(t: str | None) -> str:
+    return " / ".join(x.strip(" ·") for x in (t or "").replace("\r", "").split("\n") if x.strip()) or "운영시간 정보 없음"
+
+
+def _food_resources() -> list[tuple]:
+    """복지포털 시설안내 데이터로 학식 자원을 만듭니다.
+    - 구내식당(4곳) → cafeteria-1..4. 학생식당은 카메라 1순위(슬라이스 A), 나머지는 제보/예측.
+    - 학생복지관 2층의 일반음식점·카페 → foodcourt-1 의 입점 매장(vendors).
+    - 창의관 1층 구내식당 내 매장 → foodcourt-2.
+    데이터 파일이 없으면 최소 시드 2개로 대체합니다."""
+    data_file = BASE_DIR.parent / "jobs" / "data" / "campus_food.json"
+    fallback = [
+        ("cafeteria-1", "cafeteria", "학생복지관 2층", "학생식당", None, "vision", {"hours": "중식 11:30~13:30", "site_name": "학생식당"}),
+        ("foodcourt-1", "cafeteria", "학생복지관 2층", "푸드코트", None, "report", {"hours": "10:00~19:30", "vendors": []}),
+    ]
+    if not data_file.exists():
+        return fallback
+    try:
+        fac = json.loads(data_file.read_text(encoding="utf-8")).get("facilities", [])
+    except ValueError:
+        return fallback
+    if not fac:
+        return fallback
+    # 메뉴 데이터의 식당 이름(mock-data.js)과 시설안내의 이름이 다른 경우 매핑
+    menu_name = {"창의인재원식당": "창의관식당"}
+    order = ["학생식당", "창의인재원식당", "교직원식당", "창업보육센터식당"]
+    canteens = sorted([f for f in fac if f["category"] == "구내식당"], key=lambda f: order.index(f["name"]) if f["name"] in order else 9)
+    out = []
+    for i, f in enumerate(canteens, start=1):
+        out.append((f"cafeteria-{i}", "cafeteria", f["location"] or "", f["name"], None, "vision" if i == 1 else "report",
+                    {"hours": _clean_hours(f["operating_time"]), "site_name": menu_name.get(f["name"], f["name"]),
+                     "building_no": f.get("facility_no"), "contact": f.get("contact") or None}))
+    def vendors(pred):
+        return [{"name": f["name"], "category": "카페" if f["category"].startswith("카페") else "식당",
+                 "hours": _clean_hours(f["operating_time"]), "contact": f.get("contact") or None}
+                for f in fac if f["category"] in ("일반음식점", "카페/베이커리") and pred(f["location"] or "")]
+    v1 = vendors(lambda loc: "학생복지관 2" in loc)
+    v2 = vendors(lambda loc: "창의관 1층" in loc)
+    out.append(("foodcourt-1", "cafeteria", "학생복지관 2층", "푸드코트 (학생복지관)", None, "report",
+                {"hours": "매장별 상이 (대체로 10:00~19:30)", "vendors": v1, "building_no": "102"}))
+    if v2:
+        out.append(("foodcourt-2", "cafeteria", "창의관 1층", "창의관 푸드코트", None, "report",
+                    {"hours": "매장별 상이", "vendors": v2, "building_no": "501"}))
+    return out
 
 
 def utcnow() -> datetime:
@@ -180,7 +214,7 @@ def init_db() -> None:
     """앱 시작 시 한 번: 테이블 생성 + 자원/예측/메뉴 시드."""
     with get_conn() as conn:
         conn.executescript(SCHEMA)
-        for rid, kind, zone, name, cap, source, extra in SEED_RESOURCES:
+        for rid, kind, zone, name, cap, source, extra in _food_resources() + SEED_RESOURCES:
             # 시드 자원은 upsert: 코드에서 이름·구역·extra 를 고치면 기존 DB 에도 반영됩니다. (관리자가 등록한 다른 id 는 건드리지 않음)
             conn.execute(
                 "INSERT INTO resources(id, kind, zone, name, capacity, source, extra) VALUES (?,?,?,?,?,?,?) "
@@ -196,7 +230,9 @@ def _seed_predictions(conn: sqlite3.Connection) -> None:
     """시간대별 혼잡도 예측 초깃값. 실제로는 jobs/predict.py 가 과거 vision_metrics 로 다시 계산해 덮어씁니다.
     점심 피크(11:30~13:00)를 혼잡, 그 앞뒤를 보통, 나머지를 여유로 둡니다."""
     slots = [f"{h:02d}:{m:02d}" for h in range(7, 24) for m in (0, 30)]
-    for rid in ("cafeteria-1", "cafeteria-2"):
+    # 학식 종류의 모든 자원(구내식당 4곳 + 푸드코트)에 시드. 자원 시드가 먼저 실행된 뒤 호출됩니다.
+    cafeterias = [r["id"] for r in conn.execute("SELECT id FROM resources WHERE kind='cafeteria'").fetchall()]
+    for rid in cafeterias:
         for wd in range(0, 7):  # 주말은 아래 규칙으로 여유/보통만 나옴
             for slot in slots:
                 if wd >= 5:
@@ -225,9 +261,9 @@ def _seed_menus(conn: sqlite3.Connection) -> None:
     if data_file.exists():
         try:
             rest = {r["name"]: r["menus"] for r in json.loads(data_file.read_text(encoding="utf-8")).get("restaurants", [])}
-            mapping = {"cafeteria-1": "학생식당", "cafeteria-2": "창의관식당", "cafeteria-3": "교직원식당", "cafeteria-4": "창업보육센터식당"}
+            mapping = {rid: extra.get("site_name", name) for rid, kind, zone, name, cap, src, extra in _food_resources() if kind == "cafeteria"}
             sample = {rid: [{"name": m["course"], "price": m["price"], "meal": m["mealTime"], "items": m["items"]}
-                            for m in rest.get(name, [])] for rid, name in mapping.items()}
+                            for m in rest.get(sname, [])] for rid, sname in mapping.items()}
         except (ValueError, KeyError) as e:
             print("[seed] campus_food.json 파싱 실패, 예시 메뉴 사용:", e)
     for rid, items in sample.items():

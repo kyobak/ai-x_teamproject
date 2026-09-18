@@ -26,9 +26,11 @@ from datetime import date
 from pathlib import Path
 
 URL = "https://life.hanyang.ac.kr/theme/assets/js/mock-data.js"
+FACILITIES_URL = "https://life.hanyang.ac.kr/theme/pages/facilities/index.php"   # 시설안내: 목록 JSON 이 HTML 안에 박혀 있어 로그인 없이 읽힘
 DATA = Path(__file__).parent / "data" / "campus_food.json"
 # 우리 자원 id ↔ 사이트 식당 이름. 사이트에 없는 식당은 메뉴가 비어 있게 됩니다.
 RESOURCE_TO_RESTAURANT = {"cafeteria-1": "학생식당", "cafeteria-2": "창의관식당", "cafeteria-3": "교직원식당", "cafeteria-4": "창업보육센터식당"}
+# (server/app/db.py 의 _food_resources() 가 같은 순서로 cafeteria-1..4 를 만듭니다. 시설안내의 "창의인재원식당" = 메뉴 데이터의 "창의관식당")
 
 
 def fetch_js() -> str:
@@ -57,6 +59,37 @@ def parse_with_regex(js: str) -> list[dict]:
     return menus
 
 
+def fetch_facilities() -> list[dict]:
+    """시설안내 페이지 HTML 에 들어 있는 시설 목록 JSON 배열을 꺼냅니다.
+    (페이지는 서버가 PHP 로 배열을 인라인 스크립트에 넣고 renderFacilities() 가 그리는 구조)
+    각 항목: id, category(구내식당|일반음식점|카페/베이커리|편의점|...), name, location, operating_time, contact, facility_no(건물번호)"""
+    r = requests.get(FACILITIES_URL, headers={"User-Agent": "Mozilla/5.0 (team09 menu bot)"}, timeout=20)
+    r.raise_for_status()
+    html = r.text
+    start = html.find('[{"id":')
+    if start < 0:
+        raise RuntimeError("시설 목록 JSON 을 찾지 못함 (페이지 구조 변경?)")
+    # 대괄호 짝을 세어 배열 끝을 찾음 (문자열 안의 괄호는 따옴표 상태로 건너뜀)
+    depth, in_str, esc = 0, False, False
+    for i in range(start, len(html)):
+        ch = html[i]
+        if in_str:
+            if esc: esc = False
+            elif ch == "\\": esc = True
+            elif ch == '"': in_str = False
+            continue
+        if ch == '"': in_str = True
+        elif ch == "[": depth += 1
+        elif ch == "]":
+            depth -= 1
+            if depth == 0:
+                end = i + 1
+                break
+    items = json.loads(html[start:end])
+    keep = ("id", "category", "name", "name_en", "location", "location_en", "operating_time", "contact", "facility_no", "operating_status", "notice")
+    return [{k: it.get(k) for k in keep} for it in items]
+
+
 def fetch_menus() -> list[dict]:
     js = fetch_js()
     return parse_with_node(js) if shutil.which("node") else parse_with_regex(js)
@@ -74,6 +107,15 @@ def main():
         by_rest.setdefault(m["restaurant"], []).append(
             {"course": m["course"], "mealTime": m["mealTime"], "items": m["items"], "price": m["price"]})
     data = json.loads(DATA.read_text(encoding="utf-8")) if DATA.exists() else {}
+    try:
+        facilities = fetch_facilities()
+        data["facilities"] = facilities
+        data["_facilities_source"] = FACILITIES_URL
+        data.pop("foodcourt_vendors_todo", None)
+        data.pop("facilities_public_categories", None)
+        print(f"시설 {len(facilities)}곳:", {c: sum(1 for f in facilities if f['category'] == c) for c in sorted({f['category'] for f in facilities})})
+    except Exception as e:   # 시설 목록이 실패해도 메뉴는 갱신
+        print("[facilities] 실패:", e)
     data.update({"_fetched": date.today().isoformat(), "restaurants": [{"name": k, "menus": v} for k, v in by_rest.items()]})
     DATA.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"{len(menus)}개 메뉴, 식당 {list(by_rest)} → {DATA}")

@@ -36,7 +36,7 @@
 | QR 체크인 | `server/app/routers/checkin.py`, `apps/web/src/app/checkin/[id]` | ✅ | 관리 화면에서 QR 출력 |
 | 관리자 PIN·자원 등록 | `routers/admin.py`, `apps/web/src/app/admin` | ✅ | `ADMIN_PIN` 기본 0000 |
 | 영어 UI | `apps/web/src/lib/i18n.tsx` | ✅ 고정 문구만 | 서버 문장(note 등)은 한국어 |
-| 메뉴 크롤러 | `jobs/crawl_menu.py` → `jobs/data/campus_food.json` | ✅ | 복지포털 공개 데이터 파일. 푸드코트 매장명은 로그인 필요 → 미확보 |
+| 메뉴·시설 크롤러 | `jobs/crawl_menu.py` → `jobs/data/campus_food.json` | ✅ | 식단(mock-data.js) + 시설안내 48곳(HTML 내 JSON). 푸드코트 매장 9곳 반영 |
 | 휴대폰 센서 | `apps/web/src/app/sensor` | ✅ | iOS 는 HTTPS 필요 |
 | 모델 비교 | `vision/eval/compare_models.py` | ✅ 스크립트 | 정답 CSV 는 팀이 작성 |
 | Docker | `docker-compose.yml` | ⏳ 미검증 | 로컬 시연은 4-프로세스 방식 권장 |
@@ -50,7 +50,6 @@
 - **익명 기기 ID**: localStorage UUID. 학번·이름·GPS 는 어디에도 없음.
 
 ## 4. 남은 일 (우선순위 순)
-0. **푸드코트 입점 매장 목록** — 복지포털에 로그인해 시설안내(일반음식점 9, 카페 11)를 보고 `jobs/data/campus_food.json` 과 `server/app/db.py` 의 `foodcourt-1` vendors 에 매장명·운영시간 채우기.
 0-1. **Figma 폰트 교체** — 팀원이 Jalnan2 설치 + Figma 재시작 후 `docs/design.md` 스크립트 실행.
 1. **Figma 다듬기** — 컴포넌트화, 변수 바인딩, 체크인/센서/빈 상태 프레임.
 2. **실측값 반영** — 5주차 세탁기 로깅 후 `config.py` 의 `DEFAULT_CYCLE_MINUTES`, `VIB_END_MINUTES`, `VIB_THRESHOLD`. 3주차 관찰 후 `FALLBACK_THROUGHPUT_BY_HOUR`.
@@ -84,4 +83,4 @@ curl -s localhost:8000/api/resources | python3 -m json.tool      # 현재 상태
 
 ## 7. 작업 일지
 - **2026-09-18 (Claude, 1차)**: 저장소 구조 확정, 백엔드·로직·테스트, 비전 파이프라인, 세탁 시뮬레이터, 웹앱 5개 화면, PWA, README/ETHICS/PROMPTS/ADR/specs 작성. 로컬 E2E 확인(휴대폰 뷰포트 스크린샷, 대기열 호출 배너). Figma 5화면 와이어프레임 + 색 토큰 생성(Figma MCP 사용). 배속 시연용 `DEMO_TIME_SCALE` 추가.
-- **2026-09-18 (Claude, 2차)**: 후순위 과제 구현(Web Push, QR 체크인, 관리자 PIN·자원 등록, 영어 토글, 메뉴 크롤러, 휴대폰 센서 화면, 모델 비교 스크립트, Docker 파일). Coinbase 가이드 + Jalnan2 로 웹앱 재스타일, Figma v2 5화면. 문서: sensor-guide, demo-video-guide, design.md. 영상 스크립트 종료 키를 q→ESC (한글 ㅂ 입력에 꺼지던 문제). 미해결: 푸드코트 매장명(로그인 필요), Figma 의 Jalnan2 적용(설치·재시작 필요).
+- **2026-09-18 (Claude, 2차)**: 후순위 과제 구현(Web Push, QR 체크인, 관리자 PIN·자원 등록, 영어 토글, 메뉴 크롤러, 휴대폰 센서 화면, 모델 비교 스크립트, Docker 파일). Coinbase 가이드 + Jalnan2 로 웹앱 재스타일, Figma v2 5화면. 문서: sensor-guide, demo-video-guide, design.md. 영상 스크립트 종료 키를 q→ESC (한글 ㅂ 입력에 꺼지던 문제). 시설안내 HTML 의 JSON 에서 푸드코트 매장 9곳·구내식당 운영시간 확보. 미해결: Figma 의 Jalnan2 적용(설치·재시작 필요).
