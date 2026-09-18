@@ -1,7 +1,7 @@
 """
 FastAPI 앱 진입점.
 
-실행:  cd server && ../.venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+실행:  .venv/bin/python -m uvicorn app.main:app --app-dir server --reload --host 0.0.0.0 --port 8000
 문서:  http://localhost:8000/docs  (모든 API 를 브라우저에서 바로 실행해 볼 수 있음)
 
 --host 0.0.0.0 은 같은 와이파이의 휴대폰에서 노트북 IP 로 접속하기 위함입니다.

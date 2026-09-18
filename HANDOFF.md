@@ -55,8 +55,8 @@
 ## 5. 자주 쓰는 명령
 ```bash
 .venv/bin/python -m pytest tests -q                              # 테스트
-cd server && ../.venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-cd apps/web && npm run dev                                       # 웹
+.venv/bin/python -m uvicorn app.main:app --app-dir server --reload --host 0.0.0.0 --port 8000
+npm run dev --prefix apps/web                                    # 웹
 .venv/bin/python vision/run_video.py --loop --show               # 영상 데모
 .venv/bin/python vision/run_video.py --dry-run                   # 서버 없이 숫자만 출력
 .venv/bin/python sensors/simulate_washer.py --resource laundry-w1 --speed 20

@@ -26,12 +26,14 @@ python3 -m venv .venv
 .venv/bin/pip install -r server/requirements.txt -r vision/requirements.txt   # torch 포함 ~1GB, 5분 정도
 cd apps/web && npm install && cd ../..
 
+# ※ 아래 명령은 전부 "저장소 루트(ai-x_teamproject/)" 에서 실행합니다. 터미널을 새로 열 때마다 루트로 돌아오세요.
+
 # 1) 백엔드 (터미널 1)
-cd server && ../.venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+.venv/bin/python -m uvicorn app.main:app --app-dir server --reload --host 0.0.0.0 --port 8000
 #    → http://localhost:8000/docs 에서 API 문서 확인
 
 # 2) 웹앱 (터미널 2)
-cd apps/web && npm run dev
+npm run dev --prefix apps/web
 #    → http://localhost:3000  (휴대폰: 같은 와이파이에서 http://<노트북IP>:3000)
 
 # 3) 데모 데이터 공급 (터미널 3, 4)
@@ -39,6 +41,8 @@ cd apps/web && npm run dev
 .venv/bin/python vision/run_video.py --loop --show               # 영상 → 숫자 전송 (창에 박스 표시, 저장 안 함)
 .venv/bin/python sensors/simulate_washer.py --resource laundry-w1 --speed 20   # 세탁기 1 진동 시뮬레이션
 ```
+
+> `no such file or directory: .venv/bin/python` 이 뜨면 현재 폴더가 루트가 아닌 것입니다. `cd` 로 루트로 돌아가세요.
 
 Windows 는 `.venv/bin/python` 대신 `.venv\Scripts\python` 을 씁니다.
 
@@ -157,7 +161,7 @@ in_use    --(무진동 T=5분 연속)--------> available [1순위 대기자 호�
 
 > **배속 시연 팁.** `--speed 20` 만 쓰면 시뮬레이터가 가상 시각을 보내 "남은 분" 이 실제 시계와 어긋납니다. 남은 시간까지 자연스럽게 보이려면 서버를 배속 모드로 띄우세요:
 > ```bash
-> DEMO_TIME_SCALE=20 ../.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000   # server/ 에서
+> DEMO_TIME_SCALE=20 .venv/bin/python -m uvicorn app.main:app --app-dir server --host 0.0.0.0 --port 8000
 > .venv/bin/python sensors/simulate_washer.py --resource laundry-w1 --speed 20 --no-virtual-ts
 > ```
 > 이러면 30초→1.5초, 5분→15초, 50분→2.5분으로 모든 규칙이 같은 비율로 줄어 실제 시계와 맞습니다. 실측·테스트에서는 배속을 쓰지 마세요.
