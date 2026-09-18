@@ -12,6 +12,8 @@ services:
     healthCheckPath: /api/health
     autoDeploy: true           # main 푸시마다 자동 재배포
     envVars:
+      - key: APP_TZ
+        value: "Asia/Seoul"    # 시간표·식단·예측은 한국 시각 기준 (서버는 UTC)
       - key: DEMO_MODE
         value: "1"
       - key: DEMO_TIME_SCALE

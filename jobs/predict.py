@@ -12,6 +12,9 @@ import argparse
 import sqlite3
 from collections import defaultdict
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+KST = ZoneInfo("Asia/Seoul")   # 배포 서버가 UTC 여도 한국 시각 기준으로 슬롯을 나눔
 
 
 def level(wait_min: float) -> str:
@@ -29,7 +32,7 @@ def main():
     conn = sqlite3.connect(args.db)
     buckets: dict[tuple, list[float]] = defaultdict(list)
     for rid, wait, created in conn.execute("SELECT resource_id, est_wait_min, created_at FROM vision_metrics WHERE est_wait_min IS NOT NULL"):
-        dt = datetime.fromisoformat(created).astimezone()
+        dt = datetime.fromisoformat(created).astimezone(KST)
         slot = f"{dt.hour:02d}:{'30' if dt.minute >= 30 else '00'}"
         buckets[(rid, dt.weekday(), slot)].append(wait)
     n = 0

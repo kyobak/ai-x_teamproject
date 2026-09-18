@@ -5,5 +5,5 @@ COPY server/requirements.txt server/requirements.txt
 RUN pip install --no-cache-dir -r server/requirements.txt
 COPY server server
 COPY jobs/data jobs/data
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONUNBUFFERED=1 TZ=Asia/Seoul APP_TZ=Asia/Seoul
 CMD ["sh", "-c", "python -m uvicorn app.main:app --app-dir server --host 0.0.0.0 --port ${PORT:-8000}"]

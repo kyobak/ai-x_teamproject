@@ -8,6 +8,12 @@
 """
 import os
 from pathlib import Path
+from zoneinfo import ZoneInfo
+
+# ---------- 시간대 ----------
+# 시간표·식단 날짜·시간대 예측은 "한국 시각" 기준이어야 합니다. 배포 서버(Render/Fly)는 UTC 로 돌기 때문에
+# 서버의 로컬 시간을 쓰면 9시간이 어긋납니다(실제로 겪은 버그). 그래서 모든 "현지 시각" 계산은 이 시간대를 씁니다.
+LOCAL_TZ = ZoneInfo(os.getenv("APP_TZ", "Asia/Seoul"))
 
 # ---------- 경로 ----------
 # DB 파일은 server/ 폴더 옆 data/ 에 둡니다. .gitignore 에 포함되어 있어 커밋되지 않습니다.

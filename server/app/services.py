@@ -137,7 +137,7 @@ def _latest_admin(conn: sqlite3.Connection, resource_id: str, now: datetime) -> 
 
 
 def _menu_today(conn: sqlite3.Connection, resource_id: str) -> list:
-    today = utcnow().astimezone().strftime("%Y-%m-%d")
+    today = utcnow().astimezone(config.LOCAL_TZ).strftime("%Y-%m-%d")
     row = conn.execute("SELECT items FROM menus WHERE resource_id=? AND date=?", (resource_id, today)).fetchone()
     return json.loads(row["items"]) if row else []
 
@@ -151,7 +151,7 @@ def _next_departures(timetable: list[str], now_local: datetime, n: int = 3) -> l
 def build_resource_status(conn: sqlite3.Connection, res: sqlite3.Row | dict, now: datetime | None = None) -> dict:
     """자원 한 개의 화면용 상태. kind 별로 다른 정보를 붙입니다."""
     now = now or utcnow()
-    now_local = now.astimezone()
+    now_local = now.astimezone(config.LOCAL_TZ)
     r = dict(res)
     extra = json.loads(r.get("extra") or "{}")
     out = {

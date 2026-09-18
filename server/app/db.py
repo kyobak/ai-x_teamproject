@@ -287,7 +287,7 @@ def _seed_predictions(conn: sqlite3.Connection) -> None:
 def _seed_menus(conn: sqlite3.Connection) -> None:
     """오늘 메뉴 시드. jobs/data/campus_food.json (복지포털 공개 데이터를 jobs/crawl_menu.py 가 저장) 이 있으면 그것을 쓰고,
     없으면 예시 두 줄. 크롤러를 하루 한 번 돌리면 이 값이 덮어써집니다."""
-    today = utcnow().astimezone().strftime("%Y-%m-%d")
+    today = utcnow().astimezone(config.LOCAL_TZ).strftime("%Y-%m-%d")
     sample: dict[str, list] = {
         "cafeteria-1": [{"name": "제육볶음 정식", "price": 5500}, {"name": "된장찌개", "price": 5000}],
         "cafeteria-2": [{"name": "치킨마요 덮밥", "price": 6000}],

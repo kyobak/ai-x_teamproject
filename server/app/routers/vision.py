@@ -26,7 +26,7 @@ def check_device_key(key: str | None) -> None:
 async def post_metrics(body: VisionMetricIn, x_device_key: str | None = Header(default=None)):
     check_device_key(x_device_key)
     now = utcnow()
-    thr = body.throughput_per_min if body.throughput_per_min else W.fallback_throughput(now.astimezone())
+    thr = body.throughput_per_min if body.throughput_per_min else W.fallback_throughput(now.astimezone(config.LOCAL_TZ))
     est = W.estimate_wait_minutes(body.people_count, thr)
     with get_conn() as conn:
         if not conn.execute("SELECT 1 FROM resources WHERE id=?", (body.resource_id,)).fetchone():

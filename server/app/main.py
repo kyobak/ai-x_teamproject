@@ -72,6 +72,13 @@ for r in (resources.router, vision.router, laundry.router, reports.router, admin
     app.include_router(r)
 
 
+@app.get("/")
+async def root():
+    """브라우저로 서버 주소만 열었을 때 'Not Found' 대신 안내를 보여줍니다. 웹앱은 별도(Vercel) 주소입니다."""
+    return {"service": "ERICA 캠퍼스 대기 통합 API", "docs": "/docs", "health": "/api/health", "resources": "/api/resources",
+            "note": "이 주소는 API 서버입니다. 화면은 웹앱(Next.js) 주소로 접속하세요."}
+
+
 @app.get("/api/health")
 async def health():
     return {"ok": True, "time": utcnow().isoformat()}
