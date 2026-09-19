@@ -33,3 +33,7 @@ apps/web/next-env.d.ts
 .vscode/
 .idea/
 .claude/
+
+# ---- Android 앱 ----
+apps/mobile/node_modules/
+dist/

@@ -1,0 +1,13 @@
+{
+  "appId": "kr.ac.hanyang.erica.wait",
+  "appName": "ERICA 대기",
+  "webDir": "www",
+  "server": {
+    "url": "https://erica-wait.vercel.app",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
