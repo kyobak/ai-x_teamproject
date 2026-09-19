@@ -48,6 +48,8 @@ def shuttle(rid: str, t: datetime, direction: str | None = None, capacity: int =
     morning = math.exp(-((h - 8.7) ** 2) / 0.5) * (1.0 if to_campus else 0.3)
     evening = math.exp(-((h - 17.5) ** 2) / 0.8) * (0.3 if to_campus else 1.0)
     rate = 0.3 + 5.0 * (morning + evening) + _noise(rid + "r", t, 10) * 0.5      # 명/분
+    if t.weekday() >= 5:
+        rate *= 0.2        # 주말은 이용객이 훨씬 적음 (배차도 30분이라 평일 도착률을 쓰면 수백 명이 쌓임)
     since, headway = 10.0, 10.0
     if direction:
         from app.logic import shuttle as S                                          # 순환 임포트 방지용 지연 임포트
@@ -60,8 +62,9 @@ def shuttle(rid: str, t: datetime, direction: str | None = None, capacity: int =
             if len(past) >= 2:
                 qh, qm = map(int, past[-2].split(":"))
                 headway = (ph * 60 + pm) - (qh * 60 + qm)
-    leftover = max(0.0, rate * headway - capacity)                                  # 직전 버스에 못 탄 사람
+    leftover = min(capacity, max(0.0, rate * headway - capacity))                   # 직전 버스에 못 탄 사람 (최대 한 대분)
     people = int(round(rate * since + leftover + _noise(rid + "p", t) * 2))
+    people = min(people, int(capacity * 2.5))                                        # 시연 화면이 비현실적으로 길어지지 않게
     return {"people_count": max(0, people), "throughput_per_min": None, "confidence": round(0.5 + _noise(rid + "c", t, 7) * 0.3, 2)}
 
 

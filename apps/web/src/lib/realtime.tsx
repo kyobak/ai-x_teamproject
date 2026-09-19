@@ -13,6 +13,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { api, apiBase, type MyTicket, type Resource } from "./api";
 import { getDeviceId } from "./device";
+import { setAuth, useAuth } from "./auth";
 
 interface Ctx {
   resources: Record<string, Resource>;
@@ -87,6 +88,14 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     const poll = setInterval(() => { if (es.readyState !== EventSource.OPEN) loadAll(); }, 20000);
     return () => { es.close(); clearInterval(poll); };
   }, [deviceId, loadAll, refreshTickets]);
+
+  // 저장된 로그인이 서버에서도 유효한지 앱을 열 때 한 번 확인합니다.
+  // (무료 서버는 재배포 때 DB 가 초기화되어 계정이 사라지므로, 헤더에 옛 닉네임이 남아 있지 않게 정리)
+  const authToken = useAuth()?.token;
+  useEffect(() => {
+    if (!authToken) return;
+    api.me(authToken).catch((e: Error) => { if (/로그인|세션|401/.test(e.message)) setAuth(null); });
+  }, [authToken]);
 
   const list = useMemo(() => Object.values(resources), [resources]);
   const value: Ctx = { resources, list, connected, loading, error, myTickets, refreshTickets, deviceId };

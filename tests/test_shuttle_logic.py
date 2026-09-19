@@ -35,3 +35,10 @@ def test_demo_queue_drops_when_bus_departs():
     before = D.shuttle("x", datetime(2026, 11, 2, 17, 11, 50), "shuttlecock_to_hanyang")["people_count"]
     after = D.shuttle("x", datetime(2026, 11, 2, 17, 12, 30), "shuttlecock_to_hanyang")["people_count"]
     assert after < before
+
+
+def test_demo_weekend_queue_stays_reasonable():
+    """주말(30분 배차) 저녁에도 시연 줄이 정원의 2.5배를 넘지 않는다 (예전엔 250명까지 쌓였음)."""
+    from app.logic import demo as D
+    sat = datetime(2026, 9, 19, 17, 47)
+    assert D.shuttle("x", sat, "shuttlecock_to_hanyang")["people_count"] <= 45 * 2.5
