@@ -5,6 +5,12 @@
   - queue: 대기줄. 인원 + 통과선 처리율 + 평균 체류시간(줄 선 시간) → 학식·셔틀
   - room : 실내. 다각형 안 인원 = 재실 인원 → 오픈스페이스
 
+앉은 사람 계수 (room 구역) — 서 있는 줄과 다르게 처리하는 세 가지:
+  1) 기준점을 "발(BOTTOM_CENTER)" 이 아니라 "몸 중심(CENTER)" 으로. 책상에 앉으면 발이 가려져 박스 아래쪽이 책상 위에서 잘리기 때문.
+  2) 신뢰도 하한을 낮춤(--room-conf 0.2). 상반신만 보이는 사람은 YOLO 점수가 0.2~0.4 로 낮게 나옴.
+  3) 큰 입력 해상도(--imgsz 960) 또는 타일 추론(--tile). 멀리 앉은 작은 사람을 놓치지 않게 화면을 쪼개 여러 번 검출.
+  정확도가 더 필요하면 --model yolo11s.pt (조금 느리지만 가림에 강함).
+
 계획서 "처리 파이프라인" 6단계를 그대로 코드로 옮겼습니다:
   1. 프레임 입력      : 영상 파일(데모) 또는 웹캠(--source 0). 디스크에 쓰지 않습니다.
   2. 사람 검출        : YOLO nano (yolo11n.pt), 클래스 0(person) 만 남김
@@ -115,7 +121,10 @@ def main() -> None:
     ap.add_argument("--device-key", default="dev-edge-key")
     ap.add_argument("--device-id", default="edge-laptop")
     ap.add_argument("--model", default="yolo11n.pt", help="Ultralytics 가중치 (없으면 자동 다운로드)")
-    ap.add_argument("--conf", type=float, default=0.3, help="검출 신뢰도 하한")
+    ap.add_argument("--conf", type=float, default=0.3, help="검출 신뢰도 하한 (queue 구역: 서 있는 줄)")
+    ap.add_argument("--room-conf", type=float, default=0.2, help="room 구역 신뢰도 하한. 앉아서 상반신만 보이는 사람은 점수가 낮음")
+    ap.add_argument("--imgsz", type=int, default=960, help="YOLO 입력 해상도. 클수록 멀리 있는 작은 사람을 잘 잡지만 느림")
+    ap.add_argument("--tile", action="store_true", help="화면을 640px 타일로 나눠 검출 (넓은 라운지에 사람이 작게 보일 때)")
     ap.add_argument("--interval", type=float, default=2.0, help="서버 전송 간격(초). 계획서: 2~5초")
     ap.add_argument("--smooth-sec", type=float, default=10.0, help="인원 이동 중앙값 창(초)")
     ap.add_argument("--stride", type=int, default=2, help="n 프레임마다 1번 추론 (속도용)")
@@ -143,11 +152,14 @@ def main() -> None:
         for z in zones_cfg:
             poly = np.array(z["polygon"], dtype=np.int64)
             line = z.get("pass_line")
-            pz = sv.PolygonZone(polygon=poly, triggering_anchors=(sv.Position.BOTTOM_CENTER,))
+            is_room = z.get("type", "queue") == "room"
+            # 앉은 사람은 발이 책상에 가려지므로 room 구역은 박스 중심이 구역 안에 있는지로 판정
+            anchor = sv.Position.CENTER if is_room else sv.Position.BOTTOM_CENTER
+            pz = sv.PolygonZone(polygon=poly, triggering_anchors=(anchor,))
             lz = sv.LineZone(start=sv.Point(*line["start"]), end=sv.Point(*line["end"]),
                              triggering_anchors=(sv.Position.BOTTOM_CENTER,)) if line else None
             built.append({
-                "cfg": z, "zone": pz, "line": lz, "thr": ThroughputCounter(60.0, 0.0), "dwell": DwellTracker(),
+                "cfg": z, "zone": pz, "line": lz, "min_conf": args.room_conf if is_room else args.conf, "thr": ThroughputCounter(60.0, 0.0), "dwell": DwellTracker(),
                 "counts": deque(), "conf": deque(maxlen=50),
                 "zone_annot": sv.PolygonZoneAnnotator(zone=pz, color=sv.Color.GREEN if z.get("type", "queue") == "queue" else sv.Color.BLUE, thickness=3),
                 "line_annot": sv.LineZoneAnnotator(thickness=3, text_scale=1.0) if lz else None,
@@ -156,6 +168,15 @@ def main() -> None:
 
     zones = build_zones()
     box_annot = sv.BoxAnnotator(thickness=2)   # --show 용. 화면에 그리기만 함
+    # 모델은 모든 구역 중 가장 낮은 하한으로 한 번만 돌리고, 구역마다 자기 하한으로 거릅니다 (프레임당 추론 1회).
+    det_conf = min(z["min_conf"] for z in zones)
+
+    def detect(img):
+        r = model(img, classes=[PERSON_CLASS_ID], conf=det_conf, imgsz=args.imgsz, verbose=False)[0]
+        return sv.Detections.from_ultralytics(r)
+
+    # 타일 추론: 넓은 화면을 겹치게 잘라 각각 검출한 뒤 합침 (SAHI 방식). 작은 사람 검출률이 크게 오름.
+    slicer = sv.InferenceSlicer(callback=detect, slice_wh=640, overlap_wh=128) if args.tile else None
 
     src = int(args.source) if str(args.source).isdigit() else args.source
     cap = cv2.VideoCapture(src)
@@ -189,27 +210,27 @@ def main() -> None:
             continue
 
         # 2. 사람 검출 (사람 클래스만, 지정 신뢰도 이상)
-        result = model(frame, classes=[PERSON_CLASS_ID], conf=args.conf, verbose=False)[0]
-        det = sv.Detections.from_ultralytics(result)
+        det = slicer(frame) if slicer else detect(frame)
         # 4. 추적 (통과선 계수엔 같은 사람을 두 번 세지 않기 위한 ID 가 필요)
         det = tracker.update_with_detections(det)
 
         # 3~5. 구역별 인원·처리율·체류시간 계산
         results = []
         for zc in zones:
-            in_zone = zc["zone"].trigger(det)
+            zdet = det[det.confidence >= zc["min_conf"]] if len(det) else det   # 구역 종류별 신뢰도 하한
+            in_zone = zc["zone"].trigger(zdet)
             zone_count = int(in_zone.sum())
             zc["counts"].append((video_t, zone_count))
             while zc["counts"] and video_t - zc["counts"][0][0] > args.smooth_sec:
                 zc["counts"].popleft()
             smoothed = int(statistics.median(c for _, c in zc["counts"]))
-            if len(det.confidence) > 0:
-                zc["conf"].extend(det.confidence[in_zone].tolist() if in_zone.any() else det.confidence.tolist())
-            ids = set(int(i) for i in det.tracker_id[in_zone]) if det.tracker_id is not None and in_zone.any() else set()
+            if len(zdet.confidence) > 0:
+                zc["conf"].extend(zdet.confidence[in_zone].tolist() if in_zone.any() else zdet.confidence.tolist())
+            ids = set(int(i) for i in zdet.tracker_id[in_zone]) if zdet.tracker_id is not None and in_zone.any() else set()
             zc["dwell"].update(ids, video_t)
             thr = None
             if zc["line"] is not None:
-                ci, co = zc["line"].trigger(det)
+                ci, co = zc["line"].trigger(zdet)
                 n_cross = int(ci.sum() + co.sum()) if zc["cfg"].get("line_count_direction", "both") == "both" else int(ci.sum())
                 zc["thr"].add(video_t, n_cross)
                 thr = zc["thr"].per_minute(video_t)

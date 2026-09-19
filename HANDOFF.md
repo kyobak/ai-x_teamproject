@@ -33,7 +33,6 @@
 | 예측 | `jobs/predict.py` | ✅ 과거 평균 | 데이터 쌓인 뒤 실행 |
 | Figma | `docs/design.md` | ✅ v2 5화면 (Coinbase 가이드) + 토큰 | Jalnan2 는 Figma 재시작 후 스크립트로 교체 (design.md) |
 | Web Push | `server/app/push.py`, `apps/web/src/lib/pushClient.ts`, `public/sw.js` | ✅ | VAPID 키 자동 생성(`server/data/vapid.pem`). HTTPS 아니면 구독 불가 → 배너 대체 |
-| QR 체크인 | `server/app/routers/checkin.py`, `apps/web/src/app/checkin/[id]` | ✅ | 관리 화면에서 QR 출력 |
 | 관리자 PIN·자원 등록 | `routers/admin.py`, `apps/web/src/app/admin` | ✅ | `ADMIN_PIN` 기본 0000 |
 | 영어 UI | `apps/web/src/lib/i18n.tsx` | ✅ 고정 문구만 | 서버 문장(note 등)은 한국어 |
 | 메뉴·시설 크롤러 | `jobs/crawl_menu.py` → `jobs/data/campus_food.json` | ✅ | 식단(mock-data.js) + 시설안내 48곳(HTML 내 JSON). 푸드코트 매장 9곳 반영 |
@@ -89,3 +88,4 @@ curl -s localhost:8000/api/resources | python3 -m json.tool      # 현재 상태
 - **2026-09-19 (Claude, 3차)**: 구조 개편 — 분야 허브 → 세부 목록 → 상세. 세탁실 3개 관(인재관 3+3·창의관 6+6·행복관 3+3), 오픈스페이스 5곳, 셔틀 5방향 + 실제 시간표(PDF 1페이지 전사, `jobs/data/shuttle_timetable.json`) 로 남은 시간·탑승 예측. 닉네임 계정(로그인/내 정보). 데모 모드(`DEMO_MODE`, source=demo). YOLO 확장(다중 구역·체류시간·실내 계수·`run_all.py`). 배포 파일(fly.toml, render.yaml, vercel.json, CI, docs/deploy.md). 미전사: 셔틀 PDF 2페이지(방학 시간표)·3페이지(노선도). 실제 배포는 팀 계정 필요.
 - **2026-09-19 (Claude, 배포)**: Render 무료 플랜에 백엔드(https://erica-wait-api.onrender.com), Vercel 에 웹앱(https://erica-wait.vercel.app) 배포 완료. 서버 시간대 UTC 문제 → Asia/Seoul 고정. 웹앱도 GitHub 연결 완료 → `main` 푸시마다 자동 배포. 관리자 PIN·기기 키는 Render Environment 탭.
 - **2026-09-19 (Claude, 4차)**: 앱 아이콘 교체(`assets/brand/app-icon-source.webp` → icons/), 홈 히어로 '모든 식당 혼잡', 내 정보 저장 버그(useAuth 객체 재생성 + 하이드레이션 전 리다이렉트) 수정, 세탁 줄 서기 로그인 필수(서버 401), 푸터 'made by 굳건'. Vercel 은 GitHub 연결로 자동 배포. 배포 사이트에서 회원가입→저장→새로고침 유지 확인. 주의: Render 재배포마다 계정이 지워짐(무료 플랜).
+- **2026-09-19 (Claude, 5차)**: 오픈스페이스 8곳(팀 조사 수용 인원)으로 교체, QR 체크인 제거 → 카메라 계수(앉은 사람: CENTER 기준점·신뢰도 0.2·imgsz 960·--tile). 셔틀 2정류장만, 셔틀 화면에 하냥이(마스코트) 대기줄 애니메이션(1마리=5명, 버스 도착 시 탑승·감소, 시연 버튼). 시연용 셔틀 줄은 시간표에 맞춰 쌓였다가 출발 시 감소. 마스코트 원본 `assets/brand/mascot-source/`, 투명 처리본 `apps/web/public/mascot/`. APK: `apps/mobile`(Capacitor, 배포 URL 로딩).

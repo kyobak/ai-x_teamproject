@@ -14,7 +14,7 @@ export default function SpaceHub() {
     <>
       <Header title={t("hub.space")} back="/" />
       <main className="space-y-3 p-4">
-        <p className="text-xs text-muted">여유 있는 곳부터 보여줍니다. 입구 QR 체크인 또는 카메라 인원 계수로 재실 인원을 셉니다.</p>
+        <p className="text-xs text-muted">여유 있는 곳부터 보여줍니다. 카메라가 앉은 사람까지 세어 재실 인원을 계산합니다 (영상 저장 없음).</p>
         {spaces.map((r) => <ResourceCard key={r.id} r={r} />)}
         <Link href="/camera" className="card flex items-center justify-between p-4 text-sm">
           <span><span className="font-display text-ink">휴대폰 카메라로 재실 인원 재기</span><span className="block text-xs text-muted">휴대폰 안에서 사람을 세어 숫자만 전송</span></span>

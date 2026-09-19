@@ -56,7 +56,6 @@ export default function AdminPage() {
 
   const laundry = list.filter((r) => r.kind === "laundry");
   const levels = list.filter((r) => ["cafeteria", "shuttle", "space", "parking"].includes(r.kind));
-  const spaces = list.filter((r) => r.kind === "space");
   const Btn = ({ on, children, onClick }: { on?: boolean; children: React.ReactNode; onClick: () => void }) => (
     <button onClick={onClick} className={`pill px-3 py-1.5 text-xs font-semibold ${on ? "bg-ink text-white" : "bg-surface-strong text-ink"}`}>{children}</button>
   );
@@ -129,22 +128,6 @@ export default function AdminPage() {
             <button onClick={create} disabled={!form.id || !form.name || !form.zone} className="pill col-span-2 h-11 bg-primary font-semibold text-white disabled:bg-primary-disabled">등록</button>
           </div>
         </section>
-
-        {spaces.length > 0 && (
-          <section>
-            <h2 className="mb-2 font-display text-base text-ink">오픈스페이스 입구 QR</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {spaces.map((s) => (
-                <div key={s.id} className="card p-3 text-center text-xs">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={api.qrUrl(s.id)} alt={`${s.name} QR`} className="mx-auto w-full" />
-                  <p className="mt-1 font-semibold text-ink">{s.name}</p>
-                  <p className="text-muted">인쇄해서 입구에 붙이세요</p>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
 
         <section className="card p-4 text-xs text-body">
           <p className="font-semibold text-ink">도구</p>

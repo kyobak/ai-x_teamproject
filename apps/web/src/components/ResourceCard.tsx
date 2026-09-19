@@ -42,6 +42,7 @@ export function ResourceCard({ r }: { r: Resource }) {
         <div className="min-w-0">
           <p className="text-xs text-muted">{r.zone}</p>
           <h3 className="truncate font-display text-base text-ink">{r.name}</h3>
+          {r.kind === "space" && r.capacity ? <p className="text-[11px] text-muted-soft">수용 약 {r.capacity}명{r.space_note ? ` · ${r.space_note}` : ""}</p> : null}
         </div>
         {r.kind !== "laundry" && <LevelBadge level={r.level} size="sm" />}
         {r.kind === "laundry" && (

@@ -27,3 +27,11 @@ def test_boarding_prediction_skips_full_buses():
 def test_after_last_bus():
     late = datetime(2026, 11, 2, 23, 30)
     assert S.boarding("shuttlecock_to_hanyang", late, 5, 45)["board_time"] is None
+
+
+def test_demo_queue_drops_when_bus_departs():
+    """시연용 셔틀 줄: 출발 직전엔 길고, 출발 직후엔 짧다 (하냥이 줄 애니메이션의 근거)."""
+    from app.logic import demo as D
+    before = D.shuttle("x", datetime(2026, 11, 2, 17, 11, 50), "shuttlecock_to_hanyang")["people_count"]
+    after = D.shuttle("x", datetime(2026, 11, 2, 17, 12, 30), "shuttlecock_to_hanyang")["people_count"]
+    assert after < before

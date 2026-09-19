@@ -19,8 +19,8 @@ export function useLang(): Lang { return useSyncExternalStore(subscribe, get, ()
 const DICT: Record<string, { ko: string; en: string }> = {
   "nav.home": { ko: "홈", en: "Home" }, "nav.laundry": { ko: "세탁·건조", en: "Laundry" }, "nav.space": { ko: "오픈스페이스", en: "Spaces" }, "nav.shuttle": { ko: "셔틀", en: "Shuttle" }, "nav.cafeteria": { ko: "학식", en: "Food" }, "nav.admin": { ko: "관리", en: "Admin" }, "nav.me": { ko: "내 정보", en: "My page" },
   "hub.laundry": { ko: "세탁 · 건조", en: "Laundry & Dryers" }, "hub.laundry.sub": { ko: "인재관 · 창의관 · 행복관", en: "3 dorm laundry rooms" },
-  "hub.space": { ko: "오픈스페이스 혼잡도", en: "Open space occupancy" }, "hub.space.sub": { ko: "융합교육관 · 체육관 · 경상관 · 솔성관 · 과기대", en: "5 buildings" },
-  "hub.shuttle": { ko: "셔틀 대기줄", en: "Shuttle queues" }, "hub.shuttle.sub": { ko: "셔틀콕 · 창의인재원 · 한대앞역 · 예술인APT", en: "4 stops" },
+  "hub.space": { ko: "오픈스페이스 혼잡도", en: "Open space occupancy" }, "hub.space.sub": { ko: "융합교육관 · 경상관 · 솔성관 · 제1공학관 · 제1과기관 · 체육관 · 디자인교육관", en: "8 spaces, camera-counted" },
+  "hub.shuttle": { ko: "셔틀 대기줄", en: "Shuttle queues" }, "hub.shuttle.sub": { ko: "셔틀콕 → 한대앞역 · 한대앞역 → 셔틀콕·창의인재원", en: "2 stops" },
   "hub.cafeteria": { ko: "학식 정보 · 대기줄", en: "Cafeterias & lines" }, "hub.cafeteria.sub": { ko: "구내식당 4곳 · 푸드코트 2곳", en: "4 canteens · 2 food courts" },
   "login": { ko: "로그인", en: "Log in" }, "register": { ko: "회원가입", en: "Sign up" }, "logout": { ko: "로그아웃", en: "Log out" },
   "home.title": { ko: "ERICA 캠퍼스 대기 현황", en: "ERICA Campus Wait Times" },

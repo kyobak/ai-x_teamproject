@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Header } from "@/components/Header";
 import { apiBase } from "@/lib/api";
 import { useRealtime } from "@/lib/realtime";
@@ -9,7 +10,10 @@ import { useRealtime } from "@/lib/realtime";
  *
  * 원리 (vision/run_video.py 의 브라우저판):
  *  - TensorFlow.js + COCO-SSD(lite_mobilenet_v2) 를 CDN 에서 불러와 휴대폰 안에서 사람을 검출합니다. 영상은 휴대폰 밖으로 나가지 않습니다 (REQ-VIS-01).
- *  - 화면의 지정 구역(위·아래 경계) 안에 발 위치(박스 아래 중앙)가 있는 사람만 셉니다. 10초 이동 중앙값으로 평활화.
+ *  - 대기줄: 화면의 지정 구역(위·아래 경계) 안에 발 위치(박스 아래 중앙)가 있는 사람만 셉니다.
+ *  - 오픈스페이스(재실): 앉아 있으면 발이 책상에 가려지므로 박스 "중심" 으로 판정하고, 상반신만 보여 점수가 낮은 사람도
+ *    세도록 신뢰도 하한을 0.4 → 0.25 로 낮춥니다. 구역 기본값도 화면 전체.
+ *  - 10초 이동 중앙값으로 평활화.
  *  - 추적기가 없어 통과선 처리율은 못 세므로 throughput 은 null 로 보냅니다 → 서버가 시간대 평균 상수를 씁니다 (REQ-VIS-05, 화면에 "추정" 표시).
  *  - 10초마다 {resource_id, people_count, confidence} 만 POST.
  *
@@ -27,14 +31,16 @@ function loadScript(src: string): Promise<void> {
   });
 }
 
-export default function CameraPage() {
+function CameraPageInner() {
   const { list } = useRealtime();
   const targets = list.filter((r) => ["cafeteria", "shuttle", "space"].includes(r.kind));
-  const [resource, setResource] = useState("cafeteria-1");
+  const initial = useSearchParams().get("resource") ?? "cafeteria-1";   // 오픈스페이스 상세에서 넘어오면 그 공간을 미리 선택
+  const [resource, setResource] = useState(initial);
+  const isRoom = list.find((r) => r.id === resource)?.kind === "space";
   const [key, setKey] = useState("");
   const [status, setStatus] = useState("대기");
   const [running, setRunning] = useState(false);
-  const [top, setTop] = useState(30);      // 구역 위 경계 (%)
+  const [top, setTop] = useState(initial.startsWith("space-") ? 0 : 30);   // 구역 위 경계 (%). 실내는 화면 전체
   const [bottom, setBottom] = useState(100);
   const [count, setCount] = useState(0);
   const [smoothed, setSmoothed] = useState(0);
@@ -75,9 +81,10 @@ export default function CameraPage() {
           ctx.strokeStyle = "#05b169"; ctx.lineWidth = 3; ctx.strokeRect(2, y0, cv.width - 4, y1 - y0);
           let n = 0;
           for (const d of det) {
-            if (d.class !== "person" || d.score < 0.4) continue;
-            const [x, y, w, h] = d.bbox; const footY = y + h;
-            const inside = footY >= y0 && footY <= y1;
+            if (d.class !== "person" || d.score < (zoneType === "room" ? 0.25 : 0.4)) continue;
+            const [x, y, w, h] = d.bbox;
+            const refY = zoneType === "room" ? y + h / 2 : y + h;   // 실내: 몸 중심(앉은 사람), 줄: 발 위치
+            const inside = refY >= y0 && refY <= y1;
             if (inside) { n++; confRef.current.push(d.score); if (confRef.current.length > 50) confRef.current.shift(); }
             ctx.strokeStyle = inside ? "#0052ff" : "#a8acb3"; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
           }
@@ -120,7 +127,7 @@ export default function CameraPage() {
         <section className="card space-y-3 p-5">
           <label className="block text-sm"><span className="text-muted">측정 장소</span>
             <select value={resource} onChange={(e) => setResource(e.target.value)} disabled={running} className="mt-1 w-full rounded-xl border border-hairline bg-canvas px-3 py-2">
-              {targets.map((r) => <option key={r.id} value={r.id}>{r.name} ({r.kind === "space" ? "재실 인원" : "대기줄"})</option>)}
+              {targets.map((r) => <option key={r.id} value={r.id}>{r.kind === "space" ? `${r.zone} ${r.name}` : r.name} ({r.kind === "space" ? "재실 인원 · 앉은 사람 포함" : "대기줄"})</option>)}
             </select></label>
           <label className="block text-sm"><span className="text-muted">기기 키 (배포 서버: Render Environment 의 EDGE_API_KEY)</span>
             <input value={key} onChange={(e) => setKey(e.target.value)} disabled={running} className="mt-1 w-full rounded-xl border border-hairline bg-canvas px-3 py-2 font-mono" placeholder="예: team09-edge-2026" /></label>
@@ -129,7 +136,7 @@ export default function CameraPage() {
           ) : (
             <button onClick={() => { setRunning(false); setStatus("중지됨"); }} className="pill h-12 w-full bg-surface-strong font-semibold text-ink">중지</button>
           )}
-          <p className="text-xs text-muted">{status}</p>
+          <p className="text-xs text-muted">{status}{isRoom ? " · 실내 모드: 앉은 사람도 셉니다" : ""}</p>
         </section>
         <section className="card overflow-hidden p-0">
           <div className="relative bg-black">
@@ -149,4 +156,9 @@ export default function CameraPage() {
       </main>
     </>
   );
+}
+
+/** useSearchParams 는 Suspense 경계 안에서만 쓸 수 있어(Next.js 정적 빌드 규칙) 감쌉니다. */
+export default function CameraPage() {
+  return <Suspense fallback={null}><CameraPageInner /></Suspense>;
 }

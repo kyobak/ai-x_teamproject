@@ -58,6 +58,7 @@ export interface Resource {
   avg_cycle_min?: number | null;
   // space / parking
   occupancy_count?: number | null;
+  space_note?: string | null;
 }
 
 export interface AuthUser { token: string; nickname: string; prefs: Prefs; created_at?: string }
@@ -104,9 +105,6 @@ export const api = {
     fetch(`${apiBase()}/api/admin/resources`, { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Pin": pin }, body: JSON.stringify(body) }).then((r) => json<unknown>(r)),
   adminDeleteResource: (id: string, pin: string) =>
     fetch(`${apiBase()}/api/admin/resources/${id}`, { method: "DELETE", headers: { "X-Admin-Pin": pin } }).then((r) => json<unknown>(r)),
-  checkinToggle: (id: string, deviceId: string) => post(`/api/checkin/${id}`, { device_id: deviceId }).then((r) => json<{ state: string; occupancy_count: number }>(r)),
-  checkinMe: (id: string, deviceId: string) => fetch(`${apiBase()}/api/checkin/${id}/me?device_id=${encodeURIComponent(deviceId)}`).then((r) => json<{ checked_in: boolean }>(r)),
-  qrUrl: (id: string) => `${apiBase()}/api/checkin/${id}/qr.png?base=${encodeURIComponent(typeof window !== "undefined" ? window.location.origin : "")}`,
   pushTest: (deviceId: string) => post(`/api/push/test`, { device_id: deviceId }).then((r) => json<unknown>(r)),
   register: (nickname: string, password: string) => post(`/api/auth/register`, { nickname, password }).then((r) => json<AuthUser>(r)),
   login: (nickname: string, password: string) => post(`/api/auth/login`, { nickname, password }).then((r) => json<AuthUser>(r)),

@@ -91,14 +91,19 @@ def test_admin_can_register_resource(client):
     assert client.delete("/api/admin/resources/laundry-changui-w9", headers=PIN).status_code == 200
 
 
-def test_space_qr_checkin_toggles_and_counts(client):
-    r = client.post("/api/checkin/space-yunghap", json={"device_id": "A"}).json()
-    assert r["state"] == "checked_in" and r["occupancy_count"] == 1
-    client.post("/api/checkin/space-yunghap", json={"device_id": "B"})
-    d = client.get("/api/resources/space-yunghap").json()
-    assert d["occupancy_count"] == 2 and d["source"] == "qr"
-    assert client.post("/api/checkin/space-yunghap", json={"device_id": "A"}).json()["state"] == "checked_out"
-    assert client.get("/api/resources/space-yunghap").json()["occupancy_count"] == 1
+def test_space_uses_camera_count_when_available(client):
+    """오픈스페이스는 카메라(room 구역) 인원이 들어오면 그 값을 쓰고 출처를 vision 으로 표시."""
+    body = {"resource_id": "space-yunghap-2", "people_count": 30, "confidence": 0.7, "zone_type": "room"}
+    assert client.post("/api/vision/metrics", json=body, headers=KEY).status_code == 200
+    d = client.get("/api/resources/space-yunghap-2").json()
+    assert d["occupancy_count"] == 30 and d["source"] == "vision" and d["capacity"] == 45 and d["level"] == "normal"
+
+
+def test_space_and_shuttle_seed_lists(client):
+    rs = {r["id"]: r for r in client.get("/api/resources").json()}
+    spaces = [r for r in rs.values() if r["kind"] == "space"]
+    assert len(spaces) == 8 and rs["space-sci1"]["capacity"] == 25 and rs["space-design"]["name"] == "디자인라운지"
+    assert sorted(r["id"] for r in rs.values() if r["kind"] == "shuttle") == ["shuttle-hanyang-campus", "shuttle-shuttlecock-hanyang"]
 
 
 def test_push_public_key_and_subscribe(client):

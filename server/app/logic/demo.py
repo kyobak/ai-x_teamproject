@@ -39,12 +39,30 @@ def cafeteria(rid: str, t: datetime) -> dict:
     return {"people_count": people, "throughput_per_min": thr, "confidence": conf}
 
 
-def shuttle(rid: str, t: datetime) -> dict:
+def shuttle(rid: str, t: datetime, direction: str | None = None, capacity: int = 45) -> dict:
+    """셔틀 줄: 직전 버스가 떠난 뒤 도착률(명/분)만큼 쌓이고, 버스가 떠나는 순간 정원만큼 줄어듭니다.
+    그래서 화면의 하냥이 줄이 시간이 지날수록 길어졌다가 출발 시각에 짧아집니다 (시연용)."""
     h = t.hour + t.minute / 60
-    # 등교(8~9시), 하교(17~18시) 피크
-    c = min(1.0, 0.1 + math.exp(-((h - 8.7) ** 2) / 0.5) + 0.9 * math.exp(-((h - 17.5) ** 2) / 0.8))
-    people = int(round(c * 60 + _noise(rid + "p", t) * 8))
-    return {"people_count": people, "throughput_per_min": None, "confidence": round(0.5 + _noise(rid + "c", t, 7) * 0.3, 2)}
+    # 등교(8~9시)·하교(17~18시) 피크의 도착률. 한대앞역 → 학교 방향은 아침이, 학교 → 역 방향은 저녁이 붐빔.
+    to_campus = direction == "hanyang_to_shuttlecock"
+    morning = math.exp(-((h - 8.7) ** 2) / 0.5) * (1.0 if to_campus else 0.3)
+    evening = math.exp(-((h - 17.5) ** 2) / 0.8) * (0.3 if to_campus else 1.0)
+    rate = 0.3 + 5.0 * (morning + evening) + _noise(rid + "r", t, 10) * 0.5      # 명/분
+    since, headway = 10.0, 10.0
+    if direction:
+        from app.logic import shuttle as S                                          # 순환 임포트 방지용 지연 임포트
+        deps = S.departures_for(direction, t)
+        hhmm = t.strftime("%H:%M")
+        past = [d for d in deps if d <= hhmm]
+        if past:
+            ph, pm = map(int, past[-1].split(":"))
+            since = (t - t.replace(hour=ph, minute=pm, second=0, microsecond=0)).total_seconds() / 60
+            if len(past) >= 2:
+                qh, qm = map(int, past[-2].split(":"))
+                headway = (ph * 60 + pm) - (qh * 60 + qm)
+    leftover = max(0.0, rate * headway - capacity)                                  # 직전 버스에 못 탄 사람
+    people = int(round(rate * since + leftover + _noise(rid + "p", t) * 2))
+    return {"people_count": max(0, people), "throughput_per_min": None, "confidence": round(0.5 + _noise(rid + "c", t, 7) * 0.3, 2)}
 
 
 def space(rid: str, t: datetime, capacity: int | None) -> int:

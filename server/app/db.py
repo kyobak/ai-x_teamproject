@@ -135,21 +135,29 @@ def _laundry_resources() -> list[tuple]:
     return out
 
 
-# 오픈스페이스: 단과대·건물별 5곳. 정원은 목업(현장 확인 후 수정).
-SPACES = [("space-yunghap", "융합교육관", "융합교육관 오픈스페이스", 60), ("space-gym", "체육관", "체육관 라운지", 40),
-          ("space-gyeongsang", "경상관", "경상관 오픈스페이스", 50), ("space-solseong", "솔성관", "솔성관 오픈스페이스", 40),
-          ("space-gwagi", "과학기술대학", "과기대 오픈스페이스", 50)]
+# 오픈스페이스: 팀이 현장 조사한 8곳과 수용 인원(팀룸 제외). 재실 인원은 천장·벽 카메라로 셉니다(앉은 사람 포함).
+# (id, 건물, 공간 이름, 수용 인원, 비고)
+SPACES = [
+    ("space-yunghap-2", "융합교육관", "오픈스페이스2", 45, "팀룸 제외"),
+    ("space-yunghap-1", "융합교육관", "오픈스페이스", 35, "팀룸 제외"),
+    ("space-gyeongsang", "경상관", "상휴", 50, None),
+    ("space-solseong", "솔성관", "IC-PBL 꿈의 둥지", 30, "팀룸 제외"),
+    ("space-eng1", "제1공학관", "해동학술정보실", 40, "팀룸 제외"),
+    ("space-sci1", "제1과학기술관", "북카페", 25, None),
+    ("space-gym", "체육관", "IC-PBL Open Space", 50, None),
+    ("space-design", "디자인교육관", "디자인라운지", 50, None),
+]
 
-# 셔틀: 정류장·방향별 자원. 시간표는 jobs/data/shuttle_timetable.json (직접 노선 기준 소요: 창의인재원→셔틀콕 5분, 셔틀콕→한대앞역 10분).
+# 셔틀: 두 정류장만 (사용자 요청). 시간표는 jobs/data/shuttle_timetable.json.
 SHUTTLES = [("shuttle-shuttlecock-hanyang", "셔틀콕", "셔틀콕 → 한대앞역", "shuttlecock_to_hanyang"),
-            ("shuttle-residence-shuttlecock", "창의인재원", "창의인재원 → 셔틀콕", "residence_to_shuttlecock"),
-            ("shuttle-hanyang-campus", "한대앞역", "한대앞역 → 셔틀콕·창의인재원", "hanyang_to_shuttlecock"),
-            ("shuttle-shuttlecock-apt", "셔틀콕", "셔틀콕 → 예술인APT", "shuttlecock_to_apt"),
-            ("shuttle-apt-campus", "예술인APT", "예술인APT → 셔틀콕·창의인재원", "apt_to_shuttlecock")]
+            ("shuttle-hanyang-campus", "한대앞역", "한대앞역 → 셔틀콕·창의인재원", "hanyang_to_shuttlecock")]
+
+# 예전 시드에서 쓰던 id. 로컬 DB 에 남아 있으면 init_db 가 지웁니다 (관리자가 새로 등록한 자원은 건드리지 않음).
+RETIRED_IDS = ["space-yunghap", "space-gwagi", "shuttle-residence-shuttlecock", "shuttle-shuttlecock-apt", "shuttle-apt-campus"]
 
 SEED_RESOURCES = (
     _laundry_resources()
-    + [(rid, "space", zone, name, cap, "qr", {}) for rid, zone, name, cap in SPACES]
+    + [(rid, "space", zone, name, cap, "vision", {"note": note} if note else {}) for rid, zone, name, cap, note in SPACES]
     # 셔틀콕→한대앞역만 카메라 1순위(학식 비전 모듈 재사용), 나머지는 제보/데모
     + [(rid, "shuttle", zone, name, 45, "vision" if i == 0 else "report", {"direction": d}) for i, (rid, zone, name, d) in enumerate(SHUTTLES)]
     + [("parking-1", "parking", "정문", "정문 주차장", 120, "admin", {})]
@@ -249,6 +257,8 @@ def init_db() -> None:
     with get_conn() as conn:
         conn.executescript(SCHEMA)
         _migrate(conn)
+        for rid in RETIRED_IDS:
+            conn.execute("DELETE FROM resources WHERE id=?", (rid,))
         for rid, kind, zone, name, cap, source, extra in _food_resources() + SEED_RESOURCES:
             # 시드 자원은 upsert: 코드에서 이름·구역·extra 를 고치면 기존 DB 에도 반영됩니다. (관리자가 등록한 다른 id 는 건드리지 않음)
             conn.execute(

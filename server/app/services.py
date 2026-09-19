@@ -175,10 +175,11 @@ def build_resource_status(conn: sqlite3.Connection, res: sqlite3.Row | dict, now
         )
         # 데모 모드: 실측·관리자·제보가 전혀 없으면 예측값 대신 시연용 가상 수치를 씁니다 (source="demo").
         if config.DEMO_MODE and status.source in ("prediction", "none"):
-            d = D.shuttle(r["id"], now_local) if r["kind"] == "shuttle" else D.cafeteria(r["id"], now_local)
+            d = (D.shuttle(r["id"], now_local, extra.get("direction"), r["capacity"] or 45) if r["kind"] == "shuttle"
+                 else D.cafeteria(r["id"], now_local))
             thr = d["throughput_per_min"] or W.fallback_throughput(now_local)
             wait = W.estimate_wait_minutes(d["people_count"], thr)
-            status = W.ResolvedStatus(d["people_count"], thr, wait, W.classify_level(wait), "demo", "시연용 시뮬레이션 값 (카메라 연결 전)")
+            status = W.ResolvedStatus(d["people_count"], thr, wait, W.classify_level(wait), "demo", "카메라 연결 전")
             vm = {"created_at": iso(now), "confidence": d["confidence"]}
         out.update({
             "avg_dwell_sec": vm.get("avg_dwell_sec") if vm else None,
@@ -226,7 +227,7 @@ def build_resource_status(conn: sqlite3.Connection, res: sqlite3.Row | dict, now
         out.update({
             "building": extra.get("building"),
             "source": src,
-            "note": "시연용 시뮬레이션 값 (센서 연결 전)" if src == "demo" else "진동 센서 실측",
+            "note": "센서 연결 전" if src == "demo" else "진동 센서 실측",
             "machine_type": extra.get("type", "washer"),
             "state": st.state,
             "state_label": info["label"],
@@ -239,26 +240,24 @@ def build_resource_status(conn: sqlite3.Connection, res: sqlite3.Row | dict, now
             "avg_cycle_min": round(sum(st.cycle_history_min[-5:]) / len(st.cycle_history_min[-5:]), 1) if st.cycle_history_min else None,
         })
 
-    elif r["kind"] == "space" and r["source"] == "qr":
-        # 오픈스페이스: QR 체크인 수(퇴실 안 한 사람)로 재실 인원 계산. 관리자 입력이 최근 30분 안에 있으면 그것을 우선.
+    elif r["kind"] == "space":
+        # 오픈스페이스: 카메라 재실 인원(앉은 사람 포함, vision/run_video.py 의 room 구역) → 관리자 입력 → 시연 값 순.
+        # QR 체크인은 사람이 찍어야 데이터가 생겨 공백이 크므로 카메라 센싱으로 바꿨습니다.
         adm = _latest_admin(conn, r["id"], now)
-        count = conn.execute(
-            "SELECT COUNT(*) FROM checkins WHERE resource_id=? AND checked_out_at IS NULL", (r["id"],)
-        ).fetchone()[0]
         vm = _latest_vision(conn, r["id"])
-        if adm and adm["state"] and adm["state"].isdigit():
-            count, src, note = int(adm["state"]), "admin", "관리자 수동 입력 (30분간 유효)"
-        elif vm and W.is_vision_usable(parse_iso(vm["created_at"]), vm["confidence"], now):
-            # 실내 카메라가 재실 인원을 세는 경우 (zone_type=room). 영상은 저장하지 않고 숫자만.
-            count, src, note = vm["people_count"], "vision", "카메라 재실 인원 계수"
+        if vm and W.is_vision_usable(parse_iso(vm["created_at"]), vm["confidence"], now):
+            count, src, note = vm["people_count"], "vision", "카메라 재실 인원 계수 (앉은 사람 포함, 영상 저장 없음)"
             out["vision_seen_at"] = vm["created_at"]
-        elif count == 0 and config.DEMO_MODE:
-            count, src, note = D.space(r["id"], now_local, r["capacity"]), "demo", "시연용 시뮬레이션 값 (QR 체크인 전)"
+        elif adm and adm["state"] and adm["state"].isdigit():
+            count, src, note = int(adm["state"]), "admin", "관리자 수동 입력 (30분간 유효)"
+        elif config.DEMO_MODE:
+            count, src, note = D.space(r["id"], now_local, r["capacity"]), "demo", "카메라 연결 전"
         else:
-            src, note = "qr", "입구 QR 체크인 집계 · 퇴실을 안 찍으면 4시간 뒤 자동 퇴실"
-        ratio = (count / r["capacity"]) if r["capacity"] else 0
-        level = "relaxed" if ratio < 0.5 else "normal" if ratio < 0.85 else "crowded"
-        out.update({"occupancy_count": count, "level": level, "level_ko": LEVEL_KO[level], "source": src, "note": note})
+            count, src, note = None, "none", "카메라 신호 없음"
+        ratio = (count / r["capacity"]) if (count is not None and r["capacity"]) else 0
+        level = ("relaxed" if ratio < 0.5 else "normal" if ratio < 0.85 else "crowded") if count is not None else "unknown"
+        out.update({"occupancy_count": count, "level": level, "level_ko": LEVEL_KO[level], "source": src, "note": note,
+                    "space_note": extra.get("note")})
 
     else:  # parking 등 (Could: 관리자 입력/목업)
         adm = _latest_admin(conn, r["id"], now)
@@ -274,7 +273,7 @@ def build_resource_status(conn: sqlite3.Connection, res: sqlite3.Row | dict, now
             count = D.parking(r["id"], now_local, r["capacity"])
             ratio = count / r["capacity"] if r["capacity"] else 0
             level = "relaxed" if ratio < 0.5 else "normal" if ratio < 0.85 else "crowded"
-            src, note = "demo", "시연용 시뮬레이션 값 (주차관제 연동 전)"
+            src, note = "demo", "주차관제 연동 전"
         out.update({
             "occupancy_count": count, "level": level, "level_ko": LEVEL_KO.get(level, "알 수 없음"), "source": src, "note": note,
         })
