@@ -6,8 +6,10 @@
  * 언어는 localStorage 에 저장되고 useSyncExternalStore 로 읽어 서버 렌더링(항상 ko)과 어긋나지 않게 합니다.
  */
 import { useSyncExternalStore } from "react";
+import { translateData } from "./dataI18n";
 
-export type Lang = "ko" | "en";
+import type { Lang } from "./format";
+export type { Lang };
 const KEY = "erica-wait-lang";
 const listeners = new Set<() => void>();
 const subscribe = (cb: () => void) => { listeners.add(cb); return () => { listeners.delete(cb); }; };
@@ -42,9 +44,27 @@ const DICT: Record<string, { ko: string; en: string }> = {
   "cafe.menu": { ko: "오늘 메뉴", en: "Today's menu" }, "cafe.vendors": { ko: "입점 매장", en: "Vendors" }, "cafe.trend": { ko: "최근 줄 인원 추이", en: "Recent line trend" },
   "shuttle.people": { ko: "줄 인원", en: "in line" }, "shuttle.cap": { ko: "버스 정원", en: "bus capacity" }, "shuttle.board": { ko: "탑승 가능", en: "you board" }, "shuttle.next": { ko: "다음 차", en: "next bus" }, "shuttle.later": { ko: "대 뒤", en: " bus(es) later" }, "shuttle.dep": { ko: "다음 출발", en: "Next departures" },
   "admin.title": { ko: "관리 (수동 입력)", en: "Admin (manual input)" },
+  "back": { ko: "뒤로", en: "Back" }, "lang.toggle": { ko: "언어 전환", en: "Switch language" },
+  "conn.on": { ko: "실시간 연결됨", en: "Live connection" }, "conn.off": { ko: "연결 끊김 (20초마다 재시도)", en: "Disconnected (retrying every 20s)" },
 };
 
 export function useT() {
   const lang = useLang();
   return (key: string) => DICT[key]?.[lang] ?? key;
 }
+
+/**
+ * 화면 고정 문구용: L("한글", "English"). 두 언어를 코드에 나란히 적어 읽기 쉽게 합니다.
+ * 서버에서 온 데이터 문자열(이름·설명)은 D(문자열) 로 번역 사전을 거칩니다 (lib/dataI18n.ts).
+ */
+export function useL() {
+  const lang = useLang();
+  return (ko: string, en: string) => (lang === "en" ? en : ko);
+}
+export function useD() {
+  const lang = useLang();
+  return (s: string | null | undefined) => (lang === "en" ? translateData(s) : (s ?? ""));
+}
+
+/** 훅을 쓸 수 없는 곳(이벤트 콜백 안의 알림 등)에서 현재 언어를 읽을 때 */
+export function currentLang(): Lang { return typeof window === "undefined" ? "ko" : get(); }

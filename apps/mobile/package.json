@@ -5,7 +5,7 @@
   "description": "ERICA 대기 통합 — Android 앱 껍데기 (Capacitor). 배포된 웹앱(https://erica-wait.vercel.app)을 앱 안에서 엽니다.",
   "scripts": {
     "sync": "cap sync android",
-    "apk": "cap sync android && cd android && ./gradlew assembleDebug && cp app/build/outputs/apk/debug/app-debug.apk ../../../dist/erica-wait.apk && echo 'APK: dist/erica-wait.apk'"
+    "apk": "cap sync android && cd android && ./gradlew assembleDebug && cp app/build/outputs/apk/debug/app-debug.apk ../../../dist/erica-wait.apk && cp ../../../dist/erica-wait.apk ../../web/public/erica-wait.apk && echo 'APK: dist/erica-wait.apk (+ apps/web/public 에 복사, 웹에서 다운로드 가능)'"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

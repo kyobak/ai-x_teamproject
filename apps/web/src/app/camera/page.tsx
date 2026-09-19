@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { Header } from "@/components/Header";
 import { apiBase } from "@/lib/api";
 import { useRealtime } from "@/lib/realtime";
+import { useD, useL } from "@/lib/i18n";
 
 /**
  * "휴대폰을 카메라 장비로": 노트북·라즈베리파이 없이 휴대폰 카메라만으로 줄 인원·재실 인원을 셉니다.
@@ -26,19 +27,22 @@ type W = Window & { cocoSsd?: { load: (o: { base: string }) => Promise<Model> } 
 function loadScript(src: string): Promise<void> {
   return new Promise((res, rej) => {
     if (document.querySelector(`script[src="${src}"]`)) return res();
-    const s = document.createElement("script"); s.src = src; s.onload = () => res(); s.onerror = () => rej(new Error("스크립트 로드 실패: " + src));
+    const s = document.createElement("script"); s.src = src; s.onload = () => res(); s.onerror = () => rej(new Error("script load failed: " + src));
     document.head.appendChild(s);
   });
 }
 
 function CameraPageInner() {
   const { list } = useRealtime();
+  const L = useL();
+  const D = useD();
   const targets = list.filter((r) => ["cafeteria", "shuttle", "space"].includes(r.kind));
   const initial = useSearchParams().get("resource") ?? "cafeteria-1";   // 오픈스페이스 상세에서 넘어오면 그 공간을 미리 선택
   const [resource, setResource] = useState(initial);
   const isRoom = list.find((r) => r.id === resource)?.kind === "space";
   const [key, setKey] = useState("");
-  const [status, setStatus] = useState("대기");
+  // 상태는 키로 저장하고 화면에서 번역 (측정 중에 언어를 바꿔도 바로 반영되게)
+  const [status, setStatus] = useState("idle");
   const [running, setRunning] = useState(false);
   const [top, setTop] = useState(initial.startsWith("space-") ? 0 : 30);   // 구역 위 경계 (%). 실내는 화면 전체
   const [bottom, setBottom] = useState(100);
@@ -60,14 +64,14 @@ function CameraPageInner() {
     let timer: ReturnType<typeof setInterval> | null = null;
     (async () => {
       try {
-        setStatus("모델 내려받는 중 (처음 한 번, 약 6MB)…");
+        setStatus("loading");
         await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js");
         await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js");
         modelRef.current = await (window as W).cocoSsd!.load({ base: "lite_mobilenet_v2" });
-        setStatus("카메라 여는 중…");
+        setStatus("opening");
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 640 } }, audio: false });
         const v = videoRef.current!; v.srcObject = stream; await v.play();
-        setStatus("측정 중");
+        setStatus("measuring");
         const kind = list.find((r) => r.id === resource)?.kind;
         const zoneType = kind === "space" ? "room" : "queue";
         // 검출 루프: 한 프레임 끝나면 다음 프레임 (휴대폰 성능에 맞춰 자연스럽게 2~5 fps)
@@ -107,36 +111,39 @@ function CameraPageInner() {
             setLast({ n: med, ok: res.ok, at: new Date().toLocaleTimeString("ko-KR") });
           } catch { setLast({ n: med, ok: false, at: new Date().toLocaleTimeString("ko-KR") }); }
         }, 10000);
-      } catch (e) { setStatus("오류: " + (e as Error).message); setRunning(false); }
+      } catch (e) { setStatus("error:" + (e as Error).message); setRunning(false); }
     })();
     return () => { alive = false; if (timer) clearInterval(timer); stream?.getTracks().forEach((t) => t.stop()); };
   // resource/key 는 시작 시점 값을 쓰므로 의존성에서 제외 (측정 중 바꾸면 중지 후 재시작)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running]);
 
+  const statusText = status.startsWith("error:") ? L("오류: ", "Error: ") + status.slice(6)
+    : ({ idle: L("대기", "Idle"), loading: L("모델 내려받는 중 (처음 한 번, 약 6MB)…", "Downloading model (first time, ~6 MB)…"),
+         opening: L("카메라 여는 중…", "Opening camera…"), measuring: L("측정 중", "Measuring"), stopped: L("중지됨", "Stopped") } as Record<string, string>)[status] ?? status;
   return (
     <>
-      <Header title="휴대폰 카메라로 측정" back="/cafeteria" />
+      <Header title={L("휴대폰 카메라로 측정", "Measure with phone camera")} back="/cafeteria" />
       <main className="space-y-4 p-4">
         <ol className="list-decimal space-y-1 rounded-[24px] bg-surface-soft p-4 pl-8 text-xs text-body">
-          <li>측정할 장소와 기기 키(EDGE_API_KEY)를 넣고 시작을 누릅니다. 카메라 권한을 허용하세요.</li>
-          <li>휴대폰을 줄이 보이는 높은 곳(2m 이상, 내려다보는 각도)에 거치합니다. 얼굴이 크게 잡히지 않는 각도가 좋습니다.</li>
-          <li>초록 테두리(구역) 안에 줄이 들어오도록 위·아래 경계를 조절합니다. 파란 박스 = 구역 안에서 센 사람.</li>
-          <li>영상은 휴대폰 밖으로 나가지 않고, 10초마다 인원 숫자만 서버로 보냅니다. 처리율은 시간대 평균값으로 대체됩니다.</li>
+          <li>{L("측정할 장소와 기기 키(EDGE_API_KEY)를 넣고 시작을 누릅니다. 카메라 권한을 허용하세요.", "Pick the place, enter the device key (EDGE_API_KEY), and tap start. Allow camera access.")}</li>
+          <li>{L("휴대폰을 줄이 보이는 높은 곳(2m 이상, 내려다보는 각도)에 거치합니다. 얼굴이 크게 잡히지 않는 각도가 좋습니다.", "Mount the phone high (2 m+, looking down) where it sees the line. An angle that avoids close-up faces is best.")}</li>
+          <li>{L("초록 테두리(구역) 안에 줄이 들어오도록 위·아래 경계를 조절합니다. 파란 박스 = 구역 안에서 센 사람.", "Adjust the top and bottom limits so the line fits in the green zone. Blue boxes = people counted in the zone.")}</li>
+          <li>{L("영상은 휴대폰 밖으로 나가지 않고, 10초마다 인원 숫자만 서버로 보냅니다. 처리율은 시간대 평균값으로 대체됩니다.", "Video never leaves the phone; only the head count is sent every 10 seconds. The service rate uses the hourly average.")}</li>
         </ol>
         <section className="card space-y-3 p-5">
-          <label className="block text-sm"><span className="text-muted">측정 장소</span>
+          <label className="block text-sm"><span className="text-muted">{L("측정 장소", "Place")}</span>
             <select value={resource} onChange={(e) => setResource(e.target.value)} disabled={running} className="mt-1 w-full rounded-xl border border-hairline bg-canvas px-3 py-2">
-              {targets.map((r) => <option key={r.id} value={r.id}>{r.kind === "space" ? `${r.zone} ${r.name}` : r.name} ({r.kind === "space" ? "재실 인원 · 앉은 사람 포함" : "대기줄"})</option>)}
+              {targets.map((r) => <option key={r.id} value={r.id}>{r.kind === "space" ? `${D(r.zone)} ${D(r.name)}` : D(r.name)} ({r.kind === "space" ? L("재실 인원 · 앉은 사람 포함", "occupancy · incl. seated") : L("대기줄", "queue")})</option>)}
             </select></label>
-          <label className="block text-sm"><span className="text-muted">기기 키 (배포 서버: Render Environment 의 EDGE_API_KEY)</span>
-            <input value={key} onChange={(e) => setKey(e.target.value)} disabled={running} className="mt-1 w-full rounded-xl border border-hairline bg-canvas px-3 py-2 font-mono" placeholder="예: team09-edge-2026" /></label>
+          <label className="block text-sm"><span className="text-muted">{L("기기 키 (배포 서버: Render Environment 의 EDGE_API_KEY)", "Device key (deployed server: EDGE_API_KEY in Render Environment)")}</span>
+            <input value={key} onChange={(e) => setKey(e.target.value)} disabled={running} className="mt-1 w-full rounded-xl border border-hairline bg-canvas px-3 py-2 font-mono" placeholder={L("예: team09-edge-2026", "e.g. team09-edge-2026")} /></label>
           {!running ? (
-            <button onClick={() => setRunning(true)} disabled={!key} className="pill h-12 w-full bg-primary font-semibold text-white disabled:bg-primary-disabled">카메라 시작</button>
+            <button onClick={() => setRunning(true)} disabled={!key} className="pill h-12 w-full bg-primary font-semibold text-white disabled:bg-primary-disabled">{L("카메라 시작", "Start camera")}</button>
           ) : (
-            <button onClick={() => { setRunning(false); setStatus("중지됨"); }} className="pill h-12 w-full bg-surface-strong font-semibold text-ink">중지</button>
+            <button onClick={() => { setRunning(false); setStatus("stopped"); }} className="pill h-12 w-full bg-surface-strong font-semibold text-ink">{L("중지", "Stop")}</button>
           )}
-          <p className="text-xs text-muted">{status}{isRoom ? " · 실내 모드: 앉은 사람도 셉니다" : ""}</p>
+          <p className="text-xs text-muted">{statusText}{isRoom ? L(" · 실내 모드: 앉은 사람도 셉니다", " · Indoor mode: seated people are counted too") : ""}</p>
         </section>
         <section className="card overflow-hidden p-0">
           <div className="relative bg-black">
@@ -144,13 +151,13 @@ function CameraPageInner() {
             <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
           </div>
           <div className="grid grid-cols-2 gap-2 p-4 text-center">
-            <div className="rounded-2xl bg-surface-soft p-3"><p className="font-display text-3xl tabular-nums">{count}</p><p className="text-[11px] text-muted">지금 프레임</p></div>
-            <div className="rounded-2xl bg-surface-soft p-3"><p className="font-display text-3xl tabular-nums text-primary">{smoothed}</p><p className="text-[11px] text-muted">10초 중앙값 (전송값)</p></div>
+            <div className="rounded-2xl bg-surface-soft p-3"><p className="font-display text-3xl tabular-nums">{count}</p><p className="text-[11px] text-muted">{L("지금 프레임", "This frame")}</p></div>
+            <div className="rounded-2xl bg-surface-soft p-3"><p className="font-display text-3xl tabular-nums text-primary">{smoothed}</p><p className="text-[11px] text-muted">{L("10초 중앙값 (전송값)", "10 s median (sent)")}</p></div>
           </div>
           <div className="space-y-2 px-4 pb-4 text-xs text-body">
-            <label className="flex items-center gap-2">위 경계 {top}%<input type="range" min={0} max={90} value={top} onChange={(e) => setTop(Math.min(Number(e.target.value), bottom - 10))} className="flex-1 accent-primary" /></label>
-            <label className="flex items-center gap-2">아래 경계 {bottom}%<input type="range" min={10} max={100} value={bottom} onChange={(e) => setBottom(Math.max(Number(e.target.value), top + 10))} className="flex-1 accent-primary" /></label>
-            {last && <p className="text-muted">마지막 전송 {last.at} · {last.n}명 · {last.ok ? "서버 수신 OK" : "전송 실패 (기기 키·네트워크 확인)"}</p>}
+            <label className="flex items-center gap-2">{L("위 경계", "Top")} {top}%<input type="range" min={0} max={90} value={top} onChange={(e) => setTop(Math.min(Number(e.target.value), bottom - 10))} className="flex-1 accent-primary" /></label>
+            <label className="flex items-center gap-2">{L("아래 경계", "Bottom")} {bottom}%<input type="range" min={10} max={100} value={bottom} onChange={(e) => setBottom(Math.max(Number(e.target.value), top + 10))} className="flex-1 accent-primary" /></label>
+            {last && <p className="text-muted">{L(`마지막 전송 ${last.at} · ${last.n}명 · `, `Last sent ${last.at} · ${last.n} people · `)}{last.ok ? L("서버 수신 OK", "received") : L("전송 실패 (기기 키·네트워크 확인)", "send failed (check key/network)")}</p>}
           </div>
         </section>
       </main>

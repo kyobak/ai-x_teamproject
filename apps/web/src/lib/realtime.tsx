@@ -14,6 +14,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, u
 import { api, apiBase, type MyTicket, type Resource } from "./api";
 import { getDeviceId } from "./device";
 import { setAuth, useAuth } from "./auth";
+import { currentLang } from "./i18n";
 
 interface Ctx {
   resources: Record<string, Resource>;
@@ -77,8 +78,9 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       const d = JSON.parse((e as MessageEvent).data) as { resource_id: string; device_id: string; timeout_min?: number };
       if (d.device_id !== deviceId) return;
       refreshTickets();
-      if (e.type === "queue_called") notify("세탁기가 비었습니다!", `${d.timeout_min ?? 5}분 안에 사용을 시작하지 않으면 다음 순번으로 넘어갑니다.`);
-      if (e.type === "queue_expired") notify("순번이 만료되었습니다", "5분 안에 사용 시작이 확인되지 않아 다음 대기자를 호출했습니다.");
+      const en = currentLang() === "en";
+      if (e.type === "queue_called") notify(en ? "Your machine is free!" : "세탁기가 비었습니다!", en ? `Start within ${d.timeout_min ?? 5} minutes or the next person will be called.` : `${d.timeout_min ?? 5}분 안에 사용을 시작하지 않으면 다음 순번으로 넘어갑니다.`);
+      if (e.type === "queue_expired") notify(en ? "Your turn expired" : "순번이 만료되었습니다", en ? "No start within 5 minutes, so the next person was called." : "5분 안에 사용 시작이 확인되지 않아 다음 대기자를 호출했습니다.");
     };
     es.addEventListener("queue_called", onQueueEvent);
     es.addEventListener("queue_expired", onQueueEvent);

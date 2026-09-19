@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Header } from "@/components/Header";
 import { apiBase } from "@/lib/api";
 import { useRealtime } from "@/lib/realtime";
+import { useD, useL } from "@/lib/i18n";
 
 /**
  * "휴대폰을 진동 센서로": 센서 모듈을 사기 전에 쓸 수 있는 공짜 대안.
@@ -12,6 +13,8 @@ import { useRealtime } from "@/lib/realtime";
  */
 export default function SensorPage() {
   const { list } = useRealtime();
+  const L = useL();
+  const D = useD();
   const machines = list.filter((r) => r.kind === "laundry");
   const [resource, setResource] = useState("laundry-changui-w1");
   const [key, setKey] = useState("dev-edge-key");
@@ -57,39 +60,39 @@ export default function SensorPage() {
     const DM = DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> };
     if (typeof DM.requestPermission === "function") {
       const p = await DM.requestPermission();
-      if (p !== "granted") { alert("동작 센서 권한이 필요합니다"); return; }
+      if (p !== "granted") { alert(L("동작 센서 권한이 필요합니다", "Motion sensor permission is required")); return; }
     }
     setRunning(true);
   };
 
   return (
     <>
-      <Header title="휴대폰 진동 센서" back="/admin" />
+      <Header title={L("휴대폰 진동 센서", "Phone vibration sensor")} back="/admin" />
       <main className="space-y-4 p-4">
         <ol className="list-decimal space-y-1 rounded-[24px] bg-surface-soft p-4 pl-8 text-xs text-body">
-          <li>아래에서 기기를 고르고, 기기 키(관리자에게 받은 EDGE_API_KEY)를 넣습니다.</li>
-          <li>센서 시작을 누릅니다. iPhone 은 동작 센서 권한 허용을 묻습니다.</li>
-          <li>휴대폰을 세탁기·건조기 옆면 위쪽(문 쪽)에 테이프나 벨크로로 단단히 붙입니다. 진동 그래프가 흔들리면 정상입니다.</li>
-          <li>이 화면을 그대로 둡니다. 측정 중엔 화면이 꺼지지 않게 잡아 두지만, 안전하게 화면 자동 잠금도 꺼 두세요. 10초마다 서버에 전송됩니다.</li>
+          <li>{L("아래에서 기기를 고르고, 기기 키(관리자에게 받은 EDGE_API_KEY)를 넣습니다.", "Pick a machine below and enter the device key (EDGE_API_KEY from the admin).")}</li>
+          <li>{L("센서 시작을 누릅니다. iPhone 은 동작 센서 권한 허용을 묻습니다.", "Tap start. iPhone will ask for motion sensor permission.")}</li>
+          <li>{L("휴대폰을 세탁기·건조기 옆면 위쪽(문 쪽)에 테이프나 벨크로로 단단히 붙입니다. 진동 그래프가 흔들리면 정상입니다.", "Tape or velcro the phone firmly to the upper side (door side) of the machine. If the bar moves, it works.")}</li>
+          <li>{L("이 화면을 그대로 둡니다. 측정 중엔 화면이 꺼지지 않게 잡아 두지만, 안전하게 화면 자동 잠금도 꺼 두세요. 10초마다 서버에 전송됩니다.", "Leave this screen open. It keeps the screen awake, but turn off auto-lock to be safe. Data is sent every 10 seconds.")}</li>
         </ol>
         <section className="card space-y-3 p-6">
-          <label className="block text-sm"><span className="text-muted">기기</span>
+          <label className="block text-sm"><span className="text-muted">{L("기기", "Machine")}</span>
             <select value={resource} onChange={(e) => setResource(e.target.value)} className="mt-1 w-full rounded-xl border border-hairline bg-canvas px-3 py-2">
-              {machines.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              {machines.map((m) => <option key={m.id} value={m.id}>{D(m.zone)} {D(m.name)}</option>)}
             </select></label>
-          <label className="block text-sm"><span className="text-muted">기기 키 (server/.env 의 EDGE_API_KEY)</span>
+          <label className="block text-sm"><span className="text-muted">{L("기기 키 (server/.env 의 EDGE_API_KEY)", "Device key (EDGE_API_KEY in server/.env)")}</span>
             <input value={key} onChange={(e) => setKey(e.target.value)} className="mt-1 w-full rounded-xl border border-hairline bg-canvas px-3 py-2 font-mono" /></label>
           {!running ? (
-            <button onClick={start} className="pill h-12 w-full bg-primary font-semibold text-white">센서 시작</button>
+            <button onClick={start} className="pill h-12 w-full bg-primary font-semibold text-white">{L("센서 시작", "Start sensor")}</button>
           ) : (
-            <button onClick={() => setRunning(false)} className="pill h-12 w-full bg-surface-strong font-semibold text-ink">중지</button>
+            <button onClick={() => setRunning(false)} className="pill h-12 w-full bg-surface-strong font-semibold text-ink">{L("중지", "Stop")}</button>
           )}
           <div className="rounded-2xl bg-surface-soft p-4 text-center">
-            <p className="text-xs text-muted">지금 진동 (g)</p>
+            <p className="text-xs text-muted">{L("지금 진동 (g)", "Vibration now (g)")}</p>
             <p className="font-display text-4xl tabular-nums">{live.toFixed(3)}</p>
             <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-hairline"><div className="h-full bg-primary" style={{ width: `${Math.min(100, live * 200)}%` }} /></div>
-            {last && <p className="mt-2 text-xs text-muted">마지막 전송 평균 {last.mag.toFixed(3)} g · {last.ok ? "서버 수신 OK" : "전송 실패 (기기 키·네트워크 확인)"}</p>}
-            <p className="mt-1 text-[11px] text-muted-soft">판정 기준: 0.15 g 초과가 30초 이어지면 사용 중, 무진동 5분이면 종료 (서버 설정값)</p>
+            {last && <p className="mt-2 text-xs text-muted">{L(`마지막 전송 평균 ${last.mag.toFixed(3)} g · `, `Last average sent ${last.mag.toFixed(3)} g · `)}{last.ok ? L("서버 수신 OK", "received") : L("전송 실패 (기기 키·네트워크 확인)", "send failed (check key/network)")}</p>}
+            <p className="mt-1 text-[11px] text-muted-soft">{L("판정 기준: 0.15 g 초과가 30초 이어지면 사용 중, 무진동 5분이면 종료 (서버 설정값)", "Rule: over 0.15 g for 30 s means in use; 5 min without vibration means finished (server settings)")}</p>
           </div>
         </section>
       </main>

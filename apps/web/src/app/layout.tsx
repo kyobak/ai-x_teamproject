@@ -10,8 +10,8 @@ import { Footer } from "@/components/Footer";
  * 배경은 순백 캔버스(디자인 가이드), 데스크톱 바깥 여백만 옅은 회색.
  */
 export const metadata: Metadata = {
-  title: "ERICA 대기 통합",
-  description: "학식·세탁실·셔틀 대기 현황과 예상 대기시간",
+  title: "ERICA 대기 통합 · ERICA Wait",
+  description: "학식·세탁실·셔틀 대기 현황과 예상 대기시간 · Campus wait times for cafeterias, laundry, and shuttles",
   manifest: "/manifest.json",
   icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },   // iOS 홈 화면 아이콘은 apple-touch-icon 을 봄
   appleWebApp: { capable: true, statusBarStyle: "default", title: "ERICA 대기" },

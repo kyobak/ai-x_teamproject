@@ -20,9 +20,13 @@ sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 ## 빌드
 ```bash
 cd apps/mobile && npm install
-npm run apk                                # → 저장소 루트 dist/erica-wait.apk
+npm run apk                                # → dist/erica-wait.apk, 그리고 apps/web/public/erica-wait.apk 로 복사
 ```
 디버그 서명 APK 라 휴대폰에서 "출처를 알 수 없는 앱 설치" 를 허용하면 설치됩니다. 스토어 등록용은 서명 키를 만들어 `assembleRelease` 로 빌드해야 합니다.
 
 ## 아이콘 바꾸기
 `assets/brand/app-icon-source.webp` 를 바꾼 뒤 `.venv/bin/python apps/mobile/make_icons.py`.
+
+## 받는 곳
+배포 사이트 맨 아래 "Android 앱 다운로드 (APK)" 링크, 또는 https://erica-wait.vercel.app/erica-wait.apk
+휴대폰에서 받은 뒤 설치할 때 "출처를 알 수 없는 앱" 허용을 물으면 허용하세요.

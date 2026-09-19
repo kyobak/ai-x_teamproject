@@ -93,8 +93,10 @@ def process_queue(conn: sqlite3.Connection, resource_id: str, now: datetime | No
                                      "timeout_min": config.QUEUE_CALL_TIMEOUT_MINUTES})
         # 앱이 닫혀 있어도 도착하도록 Web Push 도 같이 보냅니다 (구독이 없으면 아무 일도 안 함).
         name = conn.execute("SELECT name FROM resources WHERE id=?", (resource_id,)).fetchone()["name"]
-        push.send_to_device(nxt["device_id"], {"title": f"{name} 이(가) 비었습니다",
-                                               "body": f"{config.QUEUE_CALL_TIMEOUT_MINUTES}분 안에 사용을 시작하지 않으면 다음 순번으로 넘어갑니다.",
+        # 서버는 받는 사람이 고른 언어를 모르므로 한국어·영어를 함께 보냅니다.
+        push.send_to_device(nxt["device_id"], {"title": f"{name} 이(가) 비었습니다 · Your machine is free",
+                                               "body": f"{config.QUEUE_CALL_TIMEOUT_MINUTES}분 안에 사용을 시작하지 않으면 다음 순번으로 넘어갑니다. "
+                                                       f"Start within {config.QUEUE_CALL_TIMEOUT_MINUTES} min or the next person is called.",
                                                "url": "/laundry"})
 
 

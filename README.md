@@ -1,6 +1,8 @@
 # ERICA 캠퍼스 대기 통합 서비스 — 프로토타입
 
-> **배포 주소**: 웹앱 https://erica-wait.vercel.app · API https://erica-wait-api.onrender.com (무료 플랜, 첫 접속 30~60초). 자세한 것은 [docs/deploy.md](docs/deploy.md)
+> **배포 주소**: 웹앱 https://erica-wait.vercel.app · API https://erica-wait-api.onrender.com (무료 플랜, 첫 접속 30~60초) · Android 앱 https://erica-wait.vercel.app/erica-wait.apk. 자세한 것은 [docs/deploy.md](docs/deploy.md), [apps/mobile/README.md](apps/mobile/README.md)
+>
+> **영어 UI**: 헤더의 EN 버튼. 화면 문구는 코드에 `L("한글", "English")` 로 나란히, 서버 데이터(식당·건물·메뉴 이름 등)는 `apps/web/src/lib/dataI18n.ts` 사전으로 번역합니다. 새 한글 데이터가 생기면 이 사전에 한 줄 추가하세요.
 
 > AI+X 공학융합프로젝트 2026 가을 · 팀 굳건 (team09)
 > 학식·세탁실·셔틀처럼 줄이 생기는 곳을 한 앱에서 보고, **영상으로 줄 인원과 처리율을 세어 "지금 서면 몇 분"** 을 알려주는 프로토타입입니다.

@@ -12,6 +12,7 @@
  * CSS transition 으로 자연스럽게 앞으로 이동합니다. 캐릭터 그림은 id 로 정해져 줄이 움직여도 같은 하냥이가 그대로 걸어갑니다.
  */
 import { useEffect, useRef, useState } from "react";
+import { useL } from "@/lib/i18n";
 
 const MASCOTS = [2, 10, 11, 13, 14, 1, 4, 15].map((n) => `/mascot/hanyang-${String(n).padStart(2, "0")}.webp`);
 const PER_MASCOT = 5;       // 하냥이 1마리 = 5명
@@ -24,6 +25,7 @@ type Phase = "idle" | "arrive" | "board" | "leave";
 export function HanyangQueue({ people, capacity, nextDeparture, stopName, demoKey }: {
   people: number | null | undefined; capacity: number | null | undefined; nextDeparture?: string; stopName: string; demoKey?: number;
 }) {
+  const L = useL();
   const target = Math.min(MAX_SHOW, Math.ceil((people ?? 0) / PER_MASCOT));
   const [ids, setIds] = useState<number[]>([]);
   const [boarding, setBoarding] = useState<number[]>([]);
@@ -111,11 +113,11 @@ export function HanyangQueue({ people, capacity, nextDeparture, stopName, demoKe
       {ids.length === 0 && (
         <div className="absolute bottom-9 right-24 flex items-end gap-2">
           <img src="/mascot/hanyang-06.webp" alt="" aria-hidden className="h-16 w-auto" />
-          <span className="mb-4 rounded-full bg-white px-2 py-1 text-[11px] text-body shadow-sm">줄이 없어요!</span>
+          <span className="mb-4 rounded-full bg-white px-2 py-1 text-[11px] text-body shadow-sm">{L("줄이 없어요!", "No line!")}</span>
         </div>
       )}
       {extra > 0 && (
-        <span className="absolute bottom-10 rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-white" style={{ right: STOP_W + MAX_SHOW * SPACING + 26 }}>+{extra}명</span>
+        <span className="absolute bottom-10 rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-white" style={{ right: STOP_W + MAX_SHOW * SPACING + 26 }}>+{extra}{L("명", "")}</span>
       )}
 
       {/* 버스 */}
